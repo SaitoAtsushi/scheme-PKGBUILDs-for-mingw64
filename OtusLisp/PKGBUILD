@@ -1,0 +1,29 @@
+_realname=OtusLisp
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=2.1.2
+pkgrel=1
+pkgdesc="Otus Lisp (Ol in short) is a purely* functional dialect of Lisp."
+arch=('any')
+url="https://github.com/yuriy-chumak/ol"
+license=('GPL3' 'MIT')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-make" "${MINGW_PACKAGE_PREFIX}-sed")
+options=('staticlibs')
+source=("ol-2.1.2.tar.gz::https://codeload.github.com/yuriy-chumak/ol/tar.gz/2.1.2")
+sha256sums=('44394e1d06cefb6a80aa2eed9936458345e3ac882b460d4da769a9dbf06f96bd')
+
+prepare() {
+  cd ${srcdir}/ol-${pkgver}
+  sed -i -e "s/#include \"olvm.c\"/#include <windows.h>\n#include \"olvm.c\"/" extensions/ffi.c
+}
+
+build() {
+  cd ${srcdir}/ol-${pkgver}
+  mingw32-make PREFIX=${MINGW_PREFIX} CC=gcc L=-lws2_32 CFLAGS="-Iwin32 -D_WIN32 -D_DEFAULT_SOURCE" HAS_SOCKETS=1 HAS_DLOPEN=0
+}
+
+package() {
+  cd ${srcdir}/ol-${pkgver}
+  make DESTDIR=${pkgdir} PREFIX=${MINGW_PREFIX} install
+}

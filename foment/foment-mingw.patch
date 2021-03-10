@@ -1,0 +1,79 @@
+diff --git a/src/foment.hpp b/src/foment.hpp
+index fdcc8a0..ea208c9 100644
+--- a/src/foment.hpp
++++ b/src/foment.hpp
+@@ -104,7 +104,11 @@ typedef double double64_t;
+ typedef wchar_t FCh16;
+ typedef FCh16 FChS;
+ 
++#ifndef __MINGW32__
+ #define FALIGN __declspec(align(8))
++#else
++#define FALIGN __attribute__ ((aligned(8)))
++#endif
+ 
+ #ifdef _M_AMD64
+ #define FOMENT_64BIT
+diff --git a/src/io.cpp b/src/io.cpp
+index b691328..bace397 100644
+--- a/src/io.cpp
++++ b/src/io.cpp
+@@ -3600,7 +3600,7 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(long_t argc, FObject argv[])
+                 {
+                     char buf[46];
+ 
+-                    lst = MakePair(MakeStringC(InetNtop(AF_INET,
++                    lst = MakePair(MakeStringC(InetNtopA(AF_INET,
+                             &((struct sockaddr_in *) iaua->Address.lpSockaddr)->sin_addr, buf, 46)),
+                             lst);
+                 }
+@@ -3608,7 +3608,7 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(long_t argc, FObject argv[])
+                 {
+                     char buf[46];
+ 
+-                    lst = MakePair(MakeStringC(InetNtop(AF_INET6,
++                    lst = MakePair(MakeStringC(InetNtopA(AF_INET6,
+                             &((struct sockaddr_in6 *) iaua->Address.lpSockaddr)->sin6_addr, buf,
+                             46)), lst);
+                 }
+diff --git a/unix/makefile b/unix/makefile
+index a45488a..4a1df6b 100644
+--- a/unix/makefile
++++ b/unix/makefile
+@@ -15,7 +15,8 @@ ifdef FOMENT_BIG_ENDIAN
+ 	CFLAGS += -DFOMENT_LITTLE_ENDIAN=0
+ endif
+ 
+-CFLAGS += -c -Wall -DFOMENT_UNIX
++CFLAGS += -municode -c -Wall -DFOMENT_WINDOWS -DUNICODE -D_UNICODE
++LDFLAGS += -static -mwindows -municode
+ 
+ CCDEBUG   := -ggdb -DFOMENT_DEBUG $(CFLAGS)
+ CCRELEASE := $(CFLAGS)
+@@ -97,7 +98,7 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
+ 		debug/library.o debug/execute.o debug/numbers.o debug/write.o\
+ 		debug/read.o debug/filesys.o debug/compare.o debug/main.o debug/hashtbl.o\
+ 		debug/bignums.o debug/charset.o debug/process.o debug/base.o
+-	$(CXX)  $(LDFLAGS) -o debug/foment $^ -lpthread
++	$(CXX)  $(LDFLAGS) -o debug/foment $^ -lpthread -lws2_32 -lIphlpapi -lmingw32
+ 
+ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile.o release/io.o\
+ 		release/synrules.o release/synpass.o release/midpass.o release/genpass.o\
+@@ -106,7 +107,7 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
+ 		release/write.o release/read.o release/filesys.o\
+ 		release/compare.o release/main.o release/hashtbl.o release/bignums.o release/charset.o\
+ 		release/process.o release/base.o
+-	$(CXX) $(LDFLAGS) -o release/foment $^ -lpthread
++	$(CXX) $(LDFLAGS) -o release/foment $^ -lpthread -lws2_32 -lIphlpapi -lmingw32
+ 
+ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile.o profile/io.o\
+ 		profile/synrules.o profile/synpass.o profile/midpass.o profile/genpass.o\
+@@ -115,7 +116,7 @@ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile
+ 		profile/write.o profile/read.o profile/filesys.o\
+ 		profile/compare.o profile/main.o profile/hashtbl.o profile/bignums.o profile/charset.o\
+ 		profile/process.o profile/base.o
+-	$(CXX)  $(LDFLAGS) -pg -o profile/foment $^ -lpthread
++	$(CXX)  $(LDFLAGS) -pg -o profile/foment $^ -lpthread -lws2_32 -lIphlpapi -lmingw32
+ 
+ debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
+ debug/gc.o: ../src/gc.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp

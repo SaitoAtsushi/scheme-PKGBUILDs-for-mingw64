@@ -1,0 +1,93 @@
+diff -u -r tinyscheme-1.42.org/makefile tinyscheme-1.42/makefile
+--- tinyscheme-1.42.org/makefile	2020-05-30 11:36:48.000000000 +0900
++++ tinyscheme-1.42/makefile	2021-03-10 13:02:36.080662100 +0900
+@@ -65,6 +65,12 @@
+ 
+ OBJS = scheme.$(Osuf) dynload.$(Osuf)
+ 
++UNAME 	 = $(shell uname -a)
++
++ifneq (,$(findstring MINGW64, $(UNAME)))
++	OBJS += init.$(Osuf)
++endif
++
+ LIBTARGET = $(LIBPREFIX)tinyscheme.$(SOsuf)
+ STATICLIBTARGET = $(LIBPREFIX)tinyscheme.$(LIBsuf)
+ 
+@@ -79,6 +85,9 @@
+ scheme$(EXE_EXT): $(OBJS)
+ 	$(CC) -o $@ $(DEBUG) $(OBJS) $(SYS_LIBS)
+ 
++init.$(Osuf): init.scm
++	objcopy -I binary -O pe-x86-64 -B i386 $< $@
++
+ $(STATICLIBTARGET): $(OBJS)
+ 	$(AR) $@ $(OBJS)
+ 
+diff -u -r tinyscheme-1.42.org/scheme.c tinyscheme-1.42/scheme.c
+--- tinyscheme-1.42.org/scheme.c	2020-05-30 11:37:00.000000000 +0900
++++ tinyscheme-1.42/scheme.c	2021-03-10 13:49:33.822178500 +0900
+@@ -18,6 +18,7 @@
+ # include <unistd.h>
+ #endif
+ #ifdef WIN32
++#include <io.h>
+ #define snprintf _snprintf
+ #endif
+ #if USE_DL
+@@ -577,8 +578,8 @@
+          i = ++sc->last_cell_seg ;
+          sc->alloc_seg[i] = cp;
+          /* adjust in TYPE_BITS-bit boundary */
+-         if(((unsigned long)cp)%adj!=0) {
+-           cp=(char*)(adj*((unsigned long)cp/adj+1));
++         if(((uintptr_t)cp)%adj!=0) {
++           cp=(char*)(adj*((uintptr_t)cp/adj+1));
+          }
+          /* insert new segment in address order */
+          newp=(pointer)cp;
+@@ -4964,7 +4965,9 @@
+ #endif
+   scheme sc;
+   FILE *fin;
++#ifndef __MINGW32__
+   char *file_name=InitFile;
++#endif
+   int retcode;
+   int isfile=1;
+ 
+@@ -4991,6 +4994,7 @@
+   scheme_define(&sc,sc.global_env,mk_symbol(&sc,"load-extension"),mk_foreign_func(&sc, scm_load_ext));
+ #endif
+   argv++;
++#ifndef __MINGW32__
+   if(access(file_name,0)!=0) {
+     char *p=getenv("TINYSCHEMEINIT");
+     if(p!=0) {
+@@ -4998,6 +5002,14 @@
+     }
+   }
+   do {
++#else
++  extern char _binary_init_scm_start[];
++  extern char _binary_init_scm_end[];
++  *(_binary_init_scm_end-1) = '\0';
++  scheme_load_string(&sc, _binary_init_scm_start);
++  char *file_name = *argv++;
++  while(file_name!=0) {
++#endif
+     if(strcmp(file_name,"-")==0) {
+       fin=stdin;
+     } else if(strcmp(file_name,"-1")==0 || strcmp(file_name,"-c")==0) {
+@@ -5037,7 +5049,10 @@
+       }
+     }
+     file_name=*argv++;
+-  } while(file_name!=0);
++  }
++#ifndef __MINGW32__
++  while(file_name!=0);
++#endif
+   if(argc==1) {
+     scheme_load_named_file(&sc,stdin,0);
+   }

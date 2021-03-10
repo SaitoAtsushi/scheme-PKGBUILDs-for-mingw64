@@ -1,0 +1,34 @@
+pkgbase=schemik
+pkgname=("${MINGW_PACKAGE_PREFIX}-schemik")
+pkgver=1.2.40.0
+pkgrel=1
+pkgdesc="a high-level lexically-scoped implicitly-parallel dialect of Scheme and Common LISP."
+arch=('any')
+url="http://schemik.sourceforge.net/"
+license=('GPL3')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "patch" "coreutils" "${MINGW_PACKAGE_PREFIX}-make")
+source=("https://pilotfiber.dl.sourceforge.net/project/schemik/schemik/1.2.40.0/schemik-1.2.40.0.tar.gz"
+        "schemik-mingw.patch")
+sha256sums=('cadee740b9b651dd52c384ef8356cefa9b326d15bf69a3f0344e9303c6975ab1'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/${pkgbase}-${pkgver}
+  patch -p1 -i ${srcdir}/schemik-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/${pkgbase}-${pkgver}
+  mingw32-make
+}
+
+package() {
+  cd ${srcdir}/${pkgbase}-${pkgver}
+  mkdir -p ${pkgdir}/${MINGW_PREFIX}/bin
+  mkdir -p ${pkgdir}/${MINGW_PREFIX}/share/schemik/1.2/
+  mkdir -p ${pkgdir}/${MINGW_PREFIX}/share/man/man1/
+  cp schemik.exe ${pkgdir}/${MINGW_PREFIX}/bin/schemik.exe
+  cp scm/base.scm ${pkgdir}/${MINGW_PREFIX}/share/schemik/1.2/base.scm
+  cp doc/man/schemik.1.gz ${pkgdir}/${MINGW_PREFIX}/share/man/man1/schemik.1.gz
+}

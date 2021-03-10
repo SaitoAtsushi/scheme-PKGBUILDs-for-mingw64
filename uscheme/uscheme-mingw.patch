@@ -1,0 +1,62 @@
+diff --git a/bignum.cpp b/bignum.cpp
+index ef0830e..b099467 100644
+--- a/bignum.cpp
++++ b/bignum.cpp
+@@ -44,7 +44,7 @@ public:
+ private:
+   void Clear_Temp_Buffers();
+   
+-  std::auto_ptr<digit> _buffer;
++  std::unique_ptr<digit> _buffer;
+   std::vector<digit*> _temp_buffers;
+   size_t _used, _desired_size, _current_size;
+ };
+@@ -73,7 +73,7 @@ digit* Array_Manager::Allocate(int size)
+   else if (_used == 0){
+     Clear_Temp_Buffers();
+     if (_desired_size > _current_size){
+-      _buffer = std::auto_ptr<digit>(new digit[_desired_size]);
++      _buffer = std::unique_ptr<digit>(new digit[_desired_size]);
+       _current_size = _desired_size;
+     }
+   }
+diff --git a/scheme.cpp b/scheme.cpp
+index 752368c..8c29565 100644
+--- a/scheme.cpp
++++ b/scheme.cpp
+@@ -34,6 +34,11 @@
+ #include <ctime>
+ #include <cmath>
+ #include <csignal>
++#ifdef __MINGW32__
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++#undef OPTIONAL
++#endif
+ 
+ #include "scheme.hpp"
+ // Included again because some of the defines are undefined at the end of scheme.hpp
+@@ -5200,10 +5205,22 @@ std::string Find_Init_File()
+   if (env_name != NULL && !std::ifstream(env_name).fail()){
+     retval = env_name;
+   }
++#ifndef __MINGW32__
+   else if (!std::ifstream(filename).fail()){
+     retval = filename;
+   }
+-#ifdef PREFIX
++#endif
++
++#if defined(__MINGW32__)
++  else {
++    char module_filename[MAX_PATH];
++    GetModuleFileNameA(0, module_filename, sizeof(module_filename));
++    auto module_path = std::string(module_filename);
++    auto pos = module_path.rfind("\\");
++  	std::replace(std::begin(module_path), std::end(module_path), '\\', '/');
++    retval = module_path.substr(0, pos-1) + "/../share/" + filename;
++  }
++#elif defined(PREFIX)
+ #ifndef _WIN32
+   else{
+     std::string long_name = PREFIX + std::string("/share/") + filename;

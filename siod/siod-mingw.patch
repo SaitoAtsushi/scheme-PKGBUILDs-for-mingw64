@@ -1,0 +1,293 @@
+diff -u -r siod.org/makefile siod/makefile
+--- siod.org/makefile	2014-03-25 19:59:16.000000000 +0900
++++ siod/makefile	2021-03-11 03:14:25.375833500 +0900
+@@ -25,10 +25,10 @@
+ #
+ # 
+ MANSEC=1
+-MANDIR=$(IROOT)/usr/local/man/man$(MANSEC)
+-BINDIR=$(IROOT)/usr/local/bin
+-INCDIR=$(IROOT)/usr/local/include
+-LIBDIR=$(IROOT)/usr/local/lib
++MANDIR=$(PREFIX)/man/man$(MANSEC)
++BINDIR=$(PREFIX)/bin
++INCDIR=$(PREFIX)/include
++LIBDIR=$(PREFIX)/lib
+ LIBSIODDIR=$(LIBDIR)/siod
+ CP_F=cp -f
+ # -Wmissing-prototypes
+@@ -277,6 +277,18 @@
+ 	LD_EXE_LIBS="-lm -ldl" \
+ 	build_driver
+ 
++win:
++	MSYS2_ARG_CONV_EXCL=PREFIX $(MAKE) \
++	PROGS="sample.exe siod.exe ssiod.exe tar.dll ss.dll regex.dll parser_pratt.dll slib.dll" \
++	CFLAGS="$(CDEBUG) -DWIN32 -DNO_OLDNAMES -Dstrdup=_strdup -Dstat=_stat -Dfstat=_fstat -Dunlink=_unlink -Dchdir=_chdir -Dchmod=_chmod -Dgetpid=_getpid -Dstrncasecmp=stricmp -Doff_t=_off_t" \
++	LD_EXE_LIBS="-lregex -lm -lws2_32" \
++	SO="dll" \
++	PREFIX=$(PREFIX) \
++	build_driver
++
++%.dll: %.o libsiod.$(SO)
++	gcc -shared -o $@ $^ ${LD_EXE_LIBS} libsiod.dll
++
+ unknown:
+ 	-ln -s ssiod siod
+ 	$(MAKE) \
+@@ -290,18 +302,18 @@
+ 
+ libsiod.$(SO): $(SIOD_OBJS_COMMON)
+ 	@echo LD_LIBRARY_PATH = $$LD_LIBRARY_PATH
+-	$(LD) -o libsiod.$(SO) $(LD_LIB_FLAGS) $(SIOD_OBJS_COMMON) \
++	$(CC) -shared -o libsiod.$(SO) $(LD_LIB_FLAGS) $(SIOD_OBJS_COMMON) \
+                                $(LD_LIB_LIBS) 
+ 
+-ssiod: siod.o $(SIOD_OBJS_COMMON)
+-	$(CC) -o ssiod $(LD_EXE_FLAGS) siod.o \
++ssiod.exe: siod.o $(SIOD_OBJS_COMMON)
++	$(CC) -o ssiod.exe $(LD_EXE_FLAGS) siod.o \
+                        $(SIOD_OBJS_COMMON) $(LD_EXE_LIBS)
+ 
+-siod: siod.o libsiod.$(SO) 
+-	$(CC) -o siod $(LD_EXE_FLAGS) siod.o libsiod.$(SO) $(LD_EXE_LIBS)
++siod.exe: siod.o libsiod.$(SO)
++	$(CC) -o siod.exe $(LD_EXE_FLAGS) siod.o libsiod.$(SO) $(LD_EXE_LIBS)
+ 
+-sample: $(SAMPLE_OBJS)
+-	$(CC) -o sample $(LD_EXE_FLAGS) $(SAMPLE_OBJS) $(LD_EXE_LIBS)
++sample.exe: $(SAMPLE_OBJS) libsiod.$(SO)
++	$(CC) -o sample.exe $(LD_EXE_FLAGS) $(SAMPLE_OBJS) $(LD_EXE_LIBS) libsiod.$(SO)
+ 
+ .o.$(SO):
+ 	$(LD) -o $@ $(LD_LIB_FLAGS) $< libsiod.$(SO) $(LD_LIB_LIBS)
+@@ -333,9 +345,6 @@
+                             $(LD_LIB_LIBS)
+ 
+ regex.$(SO): regex.o libsiod.$(SO) $(HS_REGEX_OBJS_NEEDED)
+-	$(LD) -o regex.$(SO) $(LD_LIB_FLAGS) regex.o $(HS_REGEX_OBJS_NEEDED) \
+-                 libsiod.$(SO) $(LD_LIB_LIBS)
+-
+ 
+ siod.o: siod.c siod.h
+ 
+@@ -389,8 +398,7 @@
+ 	   sample.c siod.html piechart.scm cgi.scm ftp.scm \
+            sql_msql.scm
+ 
+-SOLIBFILES=gd ndbm tar ss regex acct sql_sybase sql_oracle parser_pratt \
+-           statfs
++SOLIBFILES=tar ss regex parser_pratt
+ 
+ PUBINCS = siod.h
+ 
+@@ -419,42 +427,42 @@
+ DISTFILES= $(CMDSRCS) $(LIBFILES) $(SRCFILES) $(MANPAGES:=.man) \
+            $(MANPAGES:=.txt)
+ 
+-INTO_BINDIR=$(CMDFILES) siod
+-INTO_LIBDIR=libsiod.so libsiod.sl
++INTO_BINDIR=$(CMDFILES) siod.exe libsiod.dll
++INTO_LIBDIR=
+ 
+ install: $(DISTFILES)
+ 	@echo "Note: This does not do a build. Only installs what already"
+ 	@echo "      sits in the directory."
+-	-mkdir -p $(MANDIR)
+-	-mkdir -p $(BINDIR)
+-	-mkdir -p $(LIBDIR)
+-	-mkdir -p $(INCDIR)
+-	-mkdir -p $(LIBSIODDIR)
++	-mkdir -p $(IROOT)$(MANDIR)
++	-mkdir -p $(IROOT)$(BINDIR)
++	-mkdir -p $(IROOT)$(LIBDIR)
++	-mkdir -p $(IROOT)$(INCDIR)
++	-mkdir -p $(IROOT)$(LIBSIODDIR)
+ 	-for X in $(INTO_BINDIR)  ; do \
+-	 $(CP_F) $$X $(BINDIR) ;\
++	 $(CP_F) $$X $(IROOT)$(BINDIR) ;\
+ 	done
+ 	-for X in $(LIBFILES) ; do \
+-	 $(CP_F) $$X $(LIBSIODDIR) ;\
++	 $(CP_F) $$X $(IROOT)$(LIBSIODDIR) ;\
+ 	done
+ 	-for X in $(SOLIBFILES) ; do \
+-	  for E in so sl ; do \
+-	   $(CP_F) $$X.$$E $(LIBSIODDIR) ;\
++	  for E in dll ; do \
++	   $(CP_F) $$X.$$E $(IROOT)$(LIBSIODDIR) ;\
+ 	  done ;\
+ 	done
+ 	-for X in $(INTO_LIBDIR) ; do \
+-	 $(CP_F) $$X $(LIBDIR) ;\
++	 $(CP_F) $$X $(IROOT)$(LIBDIR) ;\
+ 	done
+ 	-for X in $(MANPAGES) ; do \
+-	 $(CP_F) $$X.man $(MANDIR)/$$X.$(MANSEC) ;\
++	 $(CP_F) $$X.man $(IROOT)$(MANDIR)/$$X.$(MANSEC) ;\
+ 	done
+ 	-for X in $(PUBINCS) ; do \
+-	 $(CP_F) $$X $(INCDIR) ;\
++	 $(CP_F) $$X $(IROOT)$(INCDIR) ;\
+ 	done
+ 	@echo "Install done."
+ 
+ clean:
+-	-rm *.o *.so *.sl *~ $(MANPAGES:.man=.txt) so_locations \
+-            siod sample siod.tar siod.tgz siod.zip selfdoc.txt TAGS \
++	-rm *.o *.dll *.sl *~ $(MANPAGES:.man=.txt) so_locations \
++            siod.exe sample.exe siod.tar siod.tgz siod.zip selfdoc.txt TAGS \
+ 	$(CMDFILES)
+ 
+ # make manpage txt files for distribution to people who do not have 
+@@ -475,8 +483,8 @@
+ siod.zip: $(DISTFILES)
+ 	zip siod.zip $(DISTFILES)
+ 
+-fixcrlf_problems: $(DISTFILES)
+-	./siod -v01,-m2 fixcrlf.smd :action=write $(DISTFILES)
++fixcrlf_problems: $(DISTFILES) siod.exe
++	bash -c "./siod -v01,-m2 fixcrlf.smd :action=write $(DISTFILES)"
+ 
+ # another case of makefile trouble. I need the binding of $(SO)
+ # here.
+@@ -509,28 +517,28 @@
+ whatsup:
+ 	@rlog -R -L RCS/*
+ 
+-csiod:	csiod.smd
+-	./siod -v01,-m2 csiod.smd csiod.smd \
+-               :o=csiod :i=$(BINDIR)/siod :p=read
++csiod:	csiod.smd siod.exe
++	bash -c "MSYS2_ARG_CONV_EXCL=* ./siod -v01,-m2 csiod.smd csiod.smd :o=csiod :i=$(BINDIR)/siod :p=read"
+ 
++proxy-server: proxy-server.smd siod.exe
+ 
+-snapshot-dir: snapshot-dir.smd
++snapshot-dir: snapshot-dir.smd siod.exe
+ 
+-snapshot-compare: snapshot-compare.smd
++snapshot-compare: snapshot-compare.smd siod.exe
+ 
+-http-get: http-get.smd
++http-get: http-get.smd siod.exe
+ 
+-http-stress: http-stress.smd
++http-stress: http-stress.smd siod.exe
+ 
+-cp-build: cp-build.smd
++cp-build: cp-build.smd siod.exe
+ 
+-ftp-cp: ftp-cp.smd
++ftp-cp: ftp-cp.smd siod.exe
+ 
+-ftp-put: ftp-put.smd
++ftp-put: ftp-put.smd siod.exe
+ 
+-ftp-test: ftp-test.smd
++ftp-test: ftp-test.smd siod.exe
+ 
+-ftp-get: ftp-get.smd
++ftp-get: ftp-get.smd siod.exe
+ 
+ gccflags:
+ 	@echo "*********************************"
+@@ -546,7 +554,7 @@
+ #	csiod $< :o=$@
+ #
+ .smd:
+-	./siod -v01,-m2 csiod.smd :o=$@ :i=$(BINDIR)/siod $<
++	bash -c "MSYS2_ARG_CONV_EXCL=* ./siod -v01,-m2 csiod.smd :o=$@ :i=$(BINDIR)/siod $<"
+ 
+ 
+ # Instead of copying additional files to the winsiod folder
+diff -u -r siod.org/siod.h siod/siod.h
+--- siod.org/siod.h	2014-03-25 17:10:42.000000000 +0900
++++ siod/siod.h	2021-03-10 23:01:35.780333400 +0900
+@@ -182,7 +182,7 @@
+ char *get_c_string(LISP x);
+ char *get_c_string_dim(LISP x,long *);
+ char *try_get_c_string(LISP x);
+-long get_c_long(LISP x);
++intptr_t get_c_long(LISP x);
+ double get_c_double(LISP x);
+ LISP lerr(LISP message, LISP x);
+ 
+diff -u -r siod.org/slib.c siod/slib.c
+--- siod.org/slib.c	2014-03-25 17:40:18.000000000 +0900
++++ siod/slib.c	2021-03-10 23:18:39.128333500 +0900
+@@ -174,7 +174,7 @@
+ void __stdcall process_cla(int argc,char **argv,int warnflag)
+ {int k;
+  char *ptr;
+- static siod_lib_set = 0;
++ static int siod_lib_set = 0;
+  char msgbuff[256];
+ #if !defined(vms)
+  if (!siod_lib_set)
+diff -u -r siod.org/sliba.c siod/sliba.c
+--- siod.org/sliba.c	2014-03-25 17:10:42.000000000 +0900
++++ siod/sliba.c	2021-03-10 23:02:00.311335000 +0900
+@@ -992,7 +992,7 @@
+     default:
+       return(errswitch());}}
+ 
+-long get_c_long(LISP x)
++intptr_t get_c_long(LISP x)
+ {if NFLONUMP(x) err("not a number",x);
+  return((long)FLONM(x));}
+ 
+diff -u -r siod.org/slibu.c siod/slibu.c
+--- siod.org/slibu.c	2014-03-25 19:32:41.000000000 +0900
++++ siod/slibu.c	2021-03-10 22:56:42.966362400 +0900
+@@ -152,8 +152,10 @@
+ 
+ #if defined(WIN32)
+ #define getcwd _getcwd
++#ifndef PATH_MAX
+ #define PATH_MAX _MAX_PATH
+ #endif
++#endif
+ 
+ LISP lgetcwd(void)
+ {char path[PATH_MAX+1];
+diff -u -r siod.org/ss.c siod/ss.c
+--- siod.org/ss.c	2014-03-25 17:25:34.000000000 +0900
++++ siod/ss.c	2021-03-11 01:19:12.443647200 +0900
+@@ -568,7 +568,8 @@
+  unsigned char *p;
+  struct sock_stream *ss;
+  struct sockaddr_in a;
+- size_t len,j;
++ int len;
++ size_t j;
+  ss = get_ss(s,0);
+  if (s->storage_as.string.dim)
+    {sprintf(buff,"#{SOCKET %d",ss->sd);
+@@ -592,7 +593,7 @@
+ LISP l_getname(int (*fcn)(int fn, struct sockaddr *,size_t *),char *msg,LISP s)
+ {struct sock_stream *ss = get_ss(s,1);
+  struct sockaddr_in a;
+- size_t len;
++ int len;
+  char buff[512];
+  unsigned char *p;
+  len = sizeof(a);
+@@ -620,7 +621,7 @@
+ LISP l_getsockname(LISP s)
+ {struct sock_stream *ss = get_ss(s,1);
+  struct sockaddr_in a;
+- size_t len;
++ int len;
+  char buff[512];
+  unsigned char *p;
+  len = sizeof(a);
+@@ -634,7 +635,7 @@
+ LISP l_getpeername(LISP s)
+ {struct sock_stream *ss = get_ss(s,1);
+  struct sockaddr_in a;
+- size_t len;
++ int len;
+  char buff[512];
+  unsigned char *p;
+  len = sizeof(a);

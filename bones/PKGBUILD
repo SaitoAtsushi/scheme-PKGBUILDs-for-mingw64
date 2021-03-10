@@ -1,0 +1,71 @@
+_realname=bones
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=8
+pkgrel=1
+pkgdesc="A compiler for R5RS Scheme that generates x86_64 assembly code."
+arch=('any')
+url="http://www.call-with-current-continuation.org/bones/"
+license=('BSD')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-nasm" "${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-sed")
+source=("bones.tar.gz::http://www.call-with-current-continuation.org/bones/bones.tar.gz")
+sha256sums=('0eed5a9fa4d541838269f25ed7999a1ea0a37ddef76dae29e7ae1056d21f64e7')
+
+build() {
+  cd ${srcdir}/bones-2015-09-29
+  nasm -f win64 bones-x86_64-windows.s -o bones.obj
+  gcc bones.obj -o bones.exe
+  sed -e "s?\/usr\/share\/bones\/?${MINGW_PREFIX}\/share\/bones\/?g" bones-autocompile >bones-autocompile.new
+  sed -e "s?\"\/usr\/share\/bones\"?\"${MINGW_PREFIX}\/share\/bones\/\" \"\/usr\/share\/bones\"?" cmplr.scm >cmplr.scm.new
+}
+
+package() {
+  cd ${srcdir}/bones-2015-09-29
+  install -d ${pkgdir}${MINGW_PREFIX}/bin
+  install bones.exe ${pkgdir}${MINGW_PREFIX}/bin
+  install bones-autocompile.new ${pkgdir}${MINGW_PREFIX}/bin/bones-autocompile
+  install -d ${pkgdir}${MINGW_PREFIX}/share/bones/
+  install -D alexpand.scm ${pkgdir}${MINGW_PREFIX}/share/bones/alexpand.scm
+  install -D all.scm ${pkgdir}${MINGW_PREFIX}/share/bones/all.scm
+  install -D base.scm ${pkgdir}${MINGW_PREFIX}/share/bones/base.scm
+  install -D bones.scm ${pkgdir}${MINGW_PREFIX}/share/bones/bones.scm
+  install -D bones-x86_64-bsd.s ${pkgdir}${MINGW_PREFIX}/share/bones/bones-x86_64-bsd.s
+  install -D bones-x86_64-linux.s ${pkgdir}${MINGW_PREFIX}/share/bones/bones-x86_64-linux.s
+  install -D bones-x86_64-mac.s ${pkgdir}${MINGW_PREFIX}/share/bones/bones-x86_64-mac.s
+  install -D bones-x86_64-windows.s ${pkgdir}${MINGW_PREFIX}/share/bones/bones-x86_64-windows.s
+  install -D cc.scm ${pkgdir}${MINGW_PREFIX}/share/bones/cc.scm
+  install -D cmplr.scm.new ${pkgdir}${MINGW_PREFIX}/share/bones/cmplr.scm
+  install -D constants.c ${pkgdir}${MINGW_PREFIX}/share/bones/constants.c
+  install -D copy.scm ${pkgdir}${MINGW_PREFIX}/share/bones/copy.scm
+  install -D cp.scm ${pkgdir}${MINGW_PREFIX}/share/bones/cp.scm
+  install -D cps.scm ${pkgdir}${MINGW_PREFIX}/share/bones/cps.scm
+  install -D eval.scm ${pkgdir}${MINGW_PREFIX}/share/bones/eval.scm
+  install -D fastmath.scm ${pkgdir}${MINGW_PREFIX}/share/bones/fastmath.scm
+  install -D main.scm ${pkgdir}${MINGW_PREFIX}/share/bones/main.scm
+  install -D mangle.scm ${pkgdir}${MINGW_PREFIX}/share/bones/mangle.scm
+  install -D MANUAL.txt ${pkgdir}${MINGW_PREFIX}/share/bones/MANUAL.txt
+  install -D match.scm ${pkgdir}${MINGW_PREFIX}/share/bones/match.scm
+  install -D megalet.scm ${pkgdir}${MINGW_PREFIX}/share/bones/megalet.scm
+  install -D nonstd.scm ${pkgdir}${MINGW_PREFIX}/share/bones/nonstd.scm
+  install -D pp.scm ${pkgdir}${MINGW_PREFIX}/share/bones/pp.scm
+  install -D program.scm ${pkgdir}${MINGW_PREFIX}/share/bones/program.scm
+  install -D r5rs.scm ${pkgdir}${MINGW_PREFIX}/share/bones/r5rs.scm
+  install -D ra.scm ${pkgdir}${MINGW_PREFIX}/share/bones/ra.scm
+  install -D records.scm ${pkgdir}${MINGW_PREFIX}/share/bones/records.scm
+  install -D simplify.scm ${pkgdir}${MINGW_PREFIX}/share/bones/simplify.scm
+  install -D si.scm ${pkgdir}${MINGW_PREFIX}/share/bones/si.scm
+  install -D sort.scm ${pkgdir}${MINGW_PREFIX}/share/bones/sort.scm
+  install -D source.scm ${pkgdir}${MINGW_PREFIX}/share/bones/source.scm
+  install -D support.scm ${pkgdir}${MINGW_PREFIX}/share/bones/support.scm
+  install -D tsort.scm ${pkgdir}${MINGW_PREFIX}/share/bones/tsort.scm
+  install -D uv.scm ${pkgdir}${MINGW_PREFIX}/share/bones/uv.scm
+  install -D version.scm ${pkgdir}${MINGW_PREFIX}/share/bones/version.scm
+  install -D x86_64.scm ${pkgdir}${MINGW_PREFIX}/share/bones/x86_64.scm
+  install -D x86_64/boneslib.s ${pkgdir}${MINGW_PREFIX}/share/bones/x86_64/boneslib.s
+  install -D x86_64/fastmath.scm ${pkgdir}${MINGW_PREFIX}/share/bones/x86_64/fastmath.scm
+  install -D x86_64/intrinsics.scm ${pkgdir}${MINGW_PREFIX}/share/bones/x86_64/intrinsics.scm
+  install -D x86_64/linux/constants.scm ${pkgdir}${MINGW_PREFIX}/share/bones/x86_64/linux/constants.scm
+  install -D x86_64/linux/syscalls-nolibc.scm ${pkgdir}${MINGW_PREFIX}/share/bones/x86_64/linux/syscalls-nolibc.scm
+  install -D x86_64/linux/syscalls.scm ${pkgdir}${MINGW_PREFIX}/share/bones/x86_64/linux/syscalls.scm
+}

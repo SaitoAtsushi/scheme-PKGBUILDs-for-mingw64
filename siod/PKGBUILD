@@ -1,0 +1,30 @@
+_realname=siod
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=3.6
+pkgrel=1
+pkgdesc="a small-footprint implementation of the Scheme programming language that is provided with some database, unix programming and cgi scripting extensions."
+arch=('any')
+url="http://people.delphiforums.com/gjc/siod.html"
+license=('LGPL')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-make" "${MINGW_PACKAGE_PREFIX}-libsystre")
+source=("http://people.delphiforums.com/gjc/siod.tgz"
+        "siod-mingw.patch")
+sha256sums=('34ddcfabc140ebd7780e03be4a79d293e6eafc88e06cfc5c567d6c52bb9140bd'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}
+  patch -p1 -i ${srcdir}/siod-mingw.patch
+}
+
+build() {
+  cd ${srcdir}
+  MSYS2_ARG_CONV_EXCL=PREFIX mingw32-make PREFIX=${MINGW_PREFIX} CC=gcc win
+}
+
+package() {
+  cd ${srcdir}
+  MSYS2_ARG_CONV_EXCL="IROOT;PREFIX" mingw32-make IROOT=${pkgdir} PREFIX=${MINGW_PREFIX} install
+}

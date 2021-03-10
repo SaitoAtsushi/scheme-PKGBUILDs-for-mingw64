@@ -1,0 +1,30 @@
+_realname=sxm
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=1.1
+pkgrel=1
+pkgdesc="A portable implementation of the Scheme Programming language."
+arch=('any')
+url="http://www.malgil.com/sxm/"
+license=('Unknown')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-make" "sed")
+source=("http://www.malgil.com/sxm/sxm-1.1.tar.gz"
+        "sxm-mingw.patch")
+sha256sums=('04bf7a4c9b527aa60d85bc074bee95f9a5376586b78fb82c4996f470d640d3da'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  patch -p1 -i ${srcdir}/sxm-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  MSYS2_ARG_CONV_EXCL="*"  mingw32-make prefix=${MINGW_PREFIX} sxmexe="./sxm.exe"
+}
+
+package() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  MSYS2_ARG_CONV_EXCL="prefix;mandir;sxmexe" mingw32-make install INSTALL_ROOT=${pkgdir} prefix=${MINGW_PREFIX} mandir=${MINGW_PREFIX}/share/man sxmexe="./sxm.exe"
+}

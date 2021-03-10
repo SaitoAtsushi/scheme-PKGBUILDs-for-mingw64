@@ -1,0 +1,11 @@
+prefix=${MINGW_PREFIX}
+exec_prefix=${prefix}
+libdir=${MINGW_PREFIX}/lib
+includedir=${MINGW_PREFIX}/include/
+
+Name: uscheme
+Description: unlikely scheme
+Version: 0.49
+Libs: -L${libdir} -luscheme
+Libs.private:
+Cflags: -I${includedir}/uscheme

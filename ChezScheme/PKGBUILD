@@ -1,0 +1,58 @@
+pkgbase=chez
+pkgname=("${MINGW_PACKAGE_PREFIX}-chez")
+pkgver=9.5.5.r581
+pkgrel=1
+pkgdesc="A implementation for the Scheme programming language."
+arch=('any')
+url="https://cisco.github.io/ChezScheme/"
+license=('Apache 2.0')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc"
+             "${MINGW_PACKAGE_PREFIX}-curl"
+             "patch"
+             "coreutils"
+             "tar"
+             "make")
+source=("ChezSchme-9096a8e.tar.gz::https://codeload.github.com/cisco/ChezScheme/tar.gz/9096a8edb5842bfbaaeb9b93cf3871a8b2c4e447")
+noextract=("ChezSchme-9096a8e.tar.gz")
+sha256sums=('e093ef1d5671e8056e2ae0cd5405967780ae70c9ee25d219a16ee3daf00b4148')
+
+prepare() {
+  tar xzf ChezSchme-9096a8e.tar.gz --exclude "csug" --exclude "stex" --exclude "wininstall"
+  cd ${srcdir}/ChezScheme-9096a8edb5842bfbaaeb9b93cf3871a8b2c4e447
+patch -p1 << 'EOS'
+diff -u -r a/configure b/configure
+--- a/configure	2019-08-12 09:17:50.000000000 +0900
++++ b/configure	2019-08-14 16:14:14.761517100 +0900
+@@ -475,6 +475,8 @@ cat > $w/c/config.h << END
+ #define SCHEME_SCRIPT "$installscriptname"
+ #ifndef WIN32
+ #define DEFAULT_HEAP_PATH "$installlib/csv%v/%m"
++#else
++#define DEFAULT_HEAP_PATH "%x;%x/../../boot/%m;%x/../lib/csv%v/%m"
+ #endif
+ END
+EOS
+}
+
+build() {
+  cd ${srcdir}/ChezScheme-9096a8edb5842bfbaaeb9b93cf3871a8b2c4e447
+
+  case "${MSYSTEM}" in
+    MINGW64)
+      machine=ta6nt
+    ;;
+    MINGW32)
+      machine=ti3nt
+    ;;
+  esac
+
+  ./configure -m=${machine} --threads --installprefix=${MINGW_PREFIX}
+  (cd ${machine}/c && make -f Mf-${machine} cross=t o=o)
+  make
+}
+
+package() {
+  cd ${srcdir}/ChezScheme-9096a8edb5842bfbaaeb9b93cf3871a8b2c4e447
+  make install TempRoot=${pkgdir}
+}

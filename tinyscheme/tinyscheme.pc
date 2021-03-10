@@ -1,0 +1,11 @@
+prefix=${MINGW_PREFIX}
+exec_prefix=${prefix}
+libdir=${MINGW_PREFIX}/lib
+includedir=${MINGW_PREFIX}/include/
+
+Name: tinyscheme
+Description: tinyscheme
+Version: 1.42
+Libs: -L${libdir} -ltinyscheme
+Libs.private:
+Cflags: -DUSE_STRLWR=0 -I${includedir}/tinyscheme

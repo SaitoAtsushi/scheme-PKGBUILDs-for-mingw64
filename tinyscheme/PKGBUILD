@@ -1,0 +1,35 @@
+pkgbase=tinyscheme
+pkgname="${MINGW_PACKAGE_PREFIX}-${pkgbase}"
+pkgver=1.42
+pkgrel=1
+pkgdesc="A lightweight Scheme interpreter that implements as large a subset of R5RS"
+arch=('any')
+url="http://tinyscheme.sourceforge.net/"
+license=('BSD')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-make")
+source=("http://jaist.dl.sourceforge.net/project/tinyscheme/tinyscheme/tinyscheme-1.42/tinyscheme-1.42.tar.gz"
+        "tinyscheme-mingw.patch"
+        "tinyscheme.pc")
+sha256sums=('17b0b1bffd22f3d49d5833e22a120b339039d2cfda0b46d6fc51dd2f01b407ad'
+            'SKIP'
+            'SKIP')
+
+prepare() {
+  cd "${srcdir}/tinyscheme-${pkgver}"
+  patch -p1 -i ${srcdir}/tinyscheme-mingw.patch
+}
+
+build() {
+  cd "${srcdir}/tinyscheme-${pkgver}"
+  mingw32-make PLATFORM_FEATURES="-DUSE_STRLWR=0" SOsuf=dll LDFLAGS="-static -shared" SYS_LIBS=""
+}
+
+package() {
+  cd "${srcdir}/tinyscheme-${pkgver}"
+  install -D -s "scheme.exe" "${pkgdir}/${MINGW_PREFIX}/bin/tinyscheme.exe"
+  install -D -s "libtinyscheme.dll" "${pkgdir}/${MINGW_PREFIX}/bin/libtinyscheme.dll"
+  install -D "libtinyscheme.a" "${pkgdir}/${MINGW_PREFIX}/lib/libtinyscheme.a"
+  install -D "scheme.h" "${pkgdir}/${MINGW_PREFIX}/include/tinyscheme/scheme.h"
+  install -D "${srcdir}/tinyscheme.pc" "${pkgdir}/${MINGW_PREFIX}/share/pkgconfig/tinyscheme.pc"
+}

@@ -1,0 +1,33 @@
+_realname=unlikely-scheme
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=0.49
+pkgrel=1
+pkgdesc="A small scheme interpreter."
+arch=('any')
+url="https://marijnhaverbeke.nl/unlikely/"
+license=('MIT')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-make")
+source=("uscheme-7fce0b6.tar.gz::https://codeload.github.com/marijnh/uscheme/tar.gz/7fce0b6e7875337da9a6a2300d8074f01e4b68d2"
+        "uscheme-mingw.patch"
+        "uscheme.pc")
+sha256sums=('46ed55b6ff3457f5a2e72aa83e1806697f2499c6ff3559750ca4dfd01f0f22a3'
+            'SKIP'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/uscheme-7fce0b6e7875337da9a6a2300d8074f01e4b68d2
+  patch -p1 -i ../uscheme-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/uscheme-7fce0b6e7875337da9a6a2300d8074f01e4b68d2
+  mingw32-make PREFIX=${MINGW_PREFIX}
+}
+
+package() {
+  cd ${srcdir}/uscheme-7fce0b6e7875337da9a6a2300d8074f01e4b68d2
+  mingw32-make install PREFIX=${pkgdir}/${MINGW_PREFIX}
+  install -D ${srcdir}/uscheme.pc "${pkgdir}/${MINGW_PREFIX}/share/pkgconfig/uscheme.pc"
+}

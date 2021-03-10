@@ -1,0 +1,311 @@
+diff -r -u sxm-1.1/iofilstd.c sxm-1.1/iofilstd.c
+--- sxm-1.1/iofilstd.c	2000-12-21 05:05:12.000000000 +0900
++++ sxm-1.1/iofilstd.c	2021-03-10 14:41:55.132320200 +0900
+@@ -66,28 +66,28 @@
+ PORT_OP void fti_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("text input port @%ld"), (long)dp);
++  stprintf(buf, T("text input port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+ PORT_OP void fto_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("text output port @%ld"), (long)dp);
++  stprintf(buf, T("text output port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+ PORT_OP void fbi_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("binary input port @%ld"), (long)dp);
++  stprintf(buf, T("binary input port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+ PORT_OP void fbo_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("binary output port @%ld"), (long)dp);
++  stprintf(buf, T("binary output port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+@@ -236,7 +236,7 @@
+ PORT_OP void fil_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("stdio port @%ld"), (long)dp);
++  stprintf(buf, T("stdio port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+@@ -371,7 +371,7 @@
+ PORT_OP void fsi_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("source input port @%ld"), (long)dp);
++  stprintf(buf, T("source input port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+diff -r -u sxm-1.1/Makefile sxm-1.1/Makefile
+--- sxm-1.1/Makefile	2001-12-09 20:31:32.000000000 +0900
++++ sxm-1.1/Makefile	2021-03-10 14:44:56.945318400 +0900
+@@ -89,14 +89,14 @@
+             iosys.c \
+             iostr.c \
+             iofilstd.c \
+-            iottystd.c \
+             optional/iocomp.c \
+             optional/iopipe.c \
+             optional/ioprocess.c \
+             optional/dirent.c \
+             optional/direct.c \
+             optional/more.c \
+-            osunix.c
++            win32/iottywnt.c \
++            win32/oswin32.c
+ 
+ headers  =  sxm.h \
+             extern.h \
+@@ -167,7 +167,7 @@
+ # real targets
+ #
+ 
+-$(engine): $(objects)
++$(sxmexe): $(objects)
+ 	$(CC) $(CFLAGS) -o $@ $^ -lm
+ 
+ $(objects): %.o: %.c 
+@@ -232,10 +232,10 @@
+ #
+ 
+ install: exe image $(engine).$(manext) $(interp).$(manext)
+-	$(INSTALL) -s -m 555 $(sxmexe) $(INSTALL_ROOT)$(bindir)
+-	$(INSTALL) -m 555 $(interp) $(INSTALL_ROOT)$(bindir)
+-	$(INSTALL) $(engine).$(manext) $(INSTALL_ROOT)$(mandir)/man$(manext)
+-	$(INSTALL) $(interp).$(manext) $(INSTALL_ROOT)$(mandir)/man$(manext)
++	$(INSTALL) -D -s -m 555 $(sxmexe) $(INSTALL_ROOT)$(bindir)/sxm.exe
++	$(INSTALL) -D -m 555 $(interp) $(INSTALL_ROOT)$(bindir)/sxi
++	$(INSTALL) -D $(engine).$(manext) $(INSTALL_ROOT)$(mandir)/man$(manext)/sxm.1
++	$(INSTALL) -D $(interp).$(manext) $(INSTALL_ROOT)$(mandir)/man$(manext)/sxi.1
+ 
+ $(engine).$(manext): $(manfile)
+ 	sed 's=BINDIR=$(bindir)=g' $^ \
+diff -r -u sxm-1.1/optional/iocomp.c sxm-1.1/optional/iocomp.c
+--- sxm-1.1/optional/iocomp.c	2000-12-21 05:05:14.000000000 +0900
++++ sxm-1.1/optional/iocomp.c	2021-03-10 14:41:55.155318700 +0900
+@@ -96,7 +96,7 @@
+ PORT_OP void bro_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("broadcast port @%ld"), (long)dp);
++  stprintf(buf, T("broadcast port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+@@ -186,7 +186,7 @@
+ PORT_OP void conc_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("concatenated port @%ld"), (long)dp);
++  stprintf(buf, T("concatenated port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+@@ -307,7 +307,7 @@
+ PORT_OP void echo_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("echo port @%ld"), (long)dp);
++  stprintf(buf, T("echo port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+@@ -409,7 +409,7 @@
+ PORT_OP void syn_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("synonym port @%ld"), (long)dp);
++  stprintf(buf, T("synonym port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+@@ -537,7 +537,7 @@
+ PORT_OP void twy_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("two-way port @%ld"), (long)dp);
++  stprintf(buf, T("two-way port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+diff -r -u sxm-1.1/optional/iopipe.c sxm-1.1/optional/iopipe.c
+--- sxm-1.1/optional/iopipe.c	2000-12-21 05:05:14.000000000 +0900
++++ sxm-1.1/optional/iopipe.c	2021-03-10 14:41:55.173318300 +0900
+@@ -67,14 +67,14 @@
+ PORT_OP void pi_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("pipe input port @%ld"), (long)dp);
++  stprintf(buf, T("pipe input port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+ PORT_OP void po_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("pipe output port @%ld"), (long)dp);
++  stprintf(buf, T("pipe output port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+diff -r -u sxm-1.1/optional/ioprocess.c sxm-1.1/optional/ioprocess.c
+--- sxm-1.1/optional/ioprocess.c	2000-12-21 05:05:14.000000000 +0900
++++ sxm-1.1/optional/ioprocess.c	2021-03-10 14:41:55.177318500 +0900
+@@ -49,14 +49,14 @@
+ PORT_OP void fpi_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("process input port @%ld"), (long)dp);
++  stprintf(buf, T("process input port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+ PORT_OP void fpo_print(PORTDPTR dp, SOBJ stream)
+ {
+   tchar_t buf[60];
+-  stprintf(buf, T("process output port @%ld"), (long)dp);
++  stprintf(buf, T("process output port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, stream);
+ }
+ 
+diff -r -u sxm-1.1/sxdisasm.c sxm-1.1/sxdisasm.c
+--- sxm-1.1/sxdisasm.c	2000-12-21 05:05:14.000000000 +0900
++++ sxm-1.1/sxdisasm.c	2021-03-10 14:41:55.182320100 +0900
+@@ -82,8 +82,8 @@
+     stprintf(buf, T("%s:%04lx %02x "),
+              getpstring(tmp), (unsigned long) lc, (unsigned) *cp);
+   else
+-    stprintf(buf, T("%lx:%04lx %02x "),
+-             (unsigned long) code, (unsigned long) lc, (unsigned) *cp);
++    stprintf(buf, T(FIXFORMAT ":%04lx %02x "),
++             (OFFTYPE) code, (unsigned long) lc, (unsigned) *cp);
+   sxWriteString(buf, port);
+ 
+   { /* find & call operand formatter */
+diff -r -u sxm-1.1/sxio.c sxm-1.1/sxio.c
+--- sxm-1.1/sxio.c	2000-12-21 05:05:14.000000000 +0900
++++ sxm-1.1/sxio.c	2021-03-10 14:41:55.186320000 +0900
+@@ -139,7 +139,7 @@
+ void sxp_print(PORTDPTR dp, SOBJ ovp)
+ {
+   tchar_t buf[40];
+-  stprintf(buf, T("port @%lx"), (unsigned long)dp);
++  stprintf(buf, T("port @" FIXFORMAT), (OFFTYPE)dp);
+   sxWriteString(buf, ovp);
+ }
+ 
+diff -r -u sxm-1.1/sxm.h sxm-1.1/sxm.h
+--- sxm-1.1/sxm.h	2001-12-09 20:25:36.000000000 +0900
++++ sxm-1.1/sxm.h	2021-03-10 14:41:55.190319500 +0900
+@@ -11,6 +11,7 @@
+ #include <setjmp.h>
+ #include <assert.h>
+ #include <time.h>
++#include <inttypes.h>
+ 
+ /* debug options */
+ #ifdef _DEBUG
+@@ -120,6 +121,15 @@
+ 
+ /* for the GNU C++ compiler */
+ #ifdef __GNUC__
++#ifdef __x86_64__
++#define OFFTYPE         uint64_t
++#define INTPTYPE        int64_t
++#define FIXTYPE         int64_t
++#define UFIXTYPE        uint64_t
++#define FIXMIN          INT64_MIN
++#define FIXMAX          INT64_MAX
++#define FIXFORMAT       "%"PRId64
++#else
+ #define OFFTYPE         unsigned long
+ #define INTPTYPE        long
+ #define FIXTYPE         long
+@@ -127,6 +137,7 @@
+ #define FIXMAX          (LONG_MAX)
+ #define FIXFORMAT       "%ld"
+ #define OSHANDLE        long
++#endif
+ #ifdef MSDOS
+ #define le2bint_t       short
+ #define OFF_LSB_PART(i) ((short)(i))
+diff -r -u sxm-1.1/sxmathread.c sxm-1.1/sxmathread.c
+--- sxm-1.1/sxmathread.c	2000-12-21 05:05:14.000000000 +0900
++++ sxm-1.1/sxmathread.c	2021-03-10 14:41:55.240318200 +0900
+@@ -93,7 +93,11 @@
+   bool_t gotdigit = FALSE;
+   bool_t gothash = FALSE;
+   const tchar_t *str;
++#ifdef UFIXTYPE
++  FIXTYPE maxfix = (FIXTYPE)(((UFIXTYPE)-1)>>1);
++#else
+   FIXTYPE maxfix = (FIXTYPE)(((unsigned FIXTYPE)-1)>>1);
++#endif
+ 
+   /* initialize */
+   if (!radix) radix = 10; else if (radix < 0) radix = -radix;
+@@ -150,7 +154,11 @@
+   bool_t gotdigit = FALSE;
+   bool_t gothash = FALSE;
+   const tchar_t *str;
++#ifdef UFIXTYPE
++  FIXTYPE maxfix = (FIXTYPE)(((UFIXTYPE)-1)>>1);
++#else
+   FIXTYPE maxfix = (FIXTYPE)(((unsigned FIXTYPE)-1)>>1);
++#endif
+ 
+   /* initialize */
+   dl = dot = dr = 0;
+diff -r -u sxm-1.1/sxwrite.c sxm-1.1/sxwrite.c
+--- sxm-1.1/sxwrite.c	2001-08-19 05:05:10.000000000 +0900
++++ sxm-1.1/sxwrite.c	2021-03-10 14:41:55.258319000 +0900
+@@ -431,11 +431,10 @@
+ 
+ void print_string(ostream_t *ps, const tchar_t* str, size_t len)
+ {
+-  tint_t ch; int length;
++  tint_t ch;
+ 
+   /* output the initial quote */
+   sxWriteChar(T('"'), ps->port);
+-  length = 0;
+ 
+   /* output each character in the string */
+   for (;len > 0; len--, str++) {
+@@ -478,7 +477,7 @@
+   tchar_t buf[SX_MAXSYMBOL+100];
+   stprintf(buf, T("#<%s @"), tag);
+   sxWriteString(buf, ps->port);
+-  stprintf(buf, T("%lx"), (long)obj);
++  stprintf(buf, T(FIXFORMAT), (OFFTYPE)obj);
+   sxWriteString(buf, ps->port);
+   sxWriteChar(T('>'), ps->port);
+ }
+diff -r -u sxm-1.1/win32/oswin32.c sxm-1.1/win32/oswin32.c
+--- sxm-1.1/win32/oswin32.c	2000-12-21 05:05:16.000000000 +0900
++++ sxm-1.1/win32/oswin32.c	2021-03-10 14:41:55.287320400 +0900
+@@ -386,7 +386,7 @@
+ 
+ void osalarm(unsigned timer)
+ {
+-#if defined(_MSC_VER)
++#if defined(_MSC_VER) || defined(__MINGW32__)
+   /* alarms are not supported by plain windows */
+ #else
+   alarm(timer);
