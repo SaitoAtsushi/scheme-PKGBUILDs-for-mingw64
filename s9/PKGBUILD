@@ -1,0 +1,32 @@
+_realname=s9
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=20190402
+pkgrel=1
+pkgdesc="A mature, portable, and comprehensible interpreter for R4RS Scheme."
+arch=('any')
+url="http://t3x.org/s9fes/"
+license=('CC0')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-make")
+source=("http://t3x.org/s9fes/s9fes-20181205.tgz"
+        "s9-mingw.patch")
+sha256sums=('e92d6e2cd172d8f92631c0672d99e0049f52d8be1020aeda1cbecb665e5ea9c9'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/s9
+  patch -p1 -i ${srcdir}/s9-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/s9
+  MSYS2_ARG_CONV_EXCL=PREFIX mingw32-make CC=gcc CFLAGS="-Wall -std=c99 -pedantic -O2 -Wno-stringop-truncation" PREFIX=${MINGW_PREFIX}
+}
+
+package() {
+  cd ${srcdir}/s9
+  MSYS2_ARG_CONV_EXCL="PREFIX" mingw32-make DESTDIR=${pkgdir} PREFIX=${MINGW_PREFIX} install-s9
+  MSYS2_ARG_CONV_EXCL="PREFIX" mingw32-make DESTDIR=${pkgdir} PREFIX=${MINGW_PREFIX} install-util
+  MSYS2_ARG_CONV_EXCL="PREFIX" mingw32-make DESTDIR=${pkgdir} PREFIX=${MINGW_PREFIX} install-progs
+}
