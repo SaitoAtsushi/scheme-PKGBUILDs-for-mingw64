@@ -1,0 +1,23 @@
+_realname=s5iof
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=1.0.1
+pkgrel=1
+pkgdesc="S5IOF is a portable interpreter for a subset of the Scheme programming language."
+arch=('any')
+url="https://github.com/false-schemers/siof"
+license=('BSD')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc")
+source=("s5iof-1.0.1.tar.gz::https://github.com/false-schemers/s5iof/archive/v1.0.1.tar.gz")
+sha256sums=('6e198cf0511f9a278b3fc21b5156c70be13ee1f994617c63a1e08e996e976f02')
+
+build() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  gcc -o s5iof.exe -O3 -DNDEBUG s5iof.c -lm
+}
+
+package() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  install -D -s s5iof.exe ${pkgdir}/${MINGW_PREFIX}/bin/s5iof.exe
+}
