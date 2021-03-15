@@ -1,0 +1,143 @@
+diff -N -r -u v110.org/src/amscm.h v110/src/amscm.h
+--- v110.org/src/amscm.h	1994-05-24 11:31:04.000000000 +0900
++++ v110/src/amscm.h	2021-03-15 00:27:00.076300100 +0900
+@@ -267,7 +267,7 @@
+ #ifndef THINK_C_DA
+ #define s_return(a) {                          \
+     value = (a);                               \
+-    eval_operator = (int)*stack--;             \
++    eval_operator = (MALLOCTYPE)*stack--;      \
+     envir = *stack--;                          \
+     code = *stack--;                           \
+     goto LOOP; }
+diff -N -r -u v110.org/src/config.h v110/src/config.h
+--- v110.org/src/config.h	1994-05-24 11:31:04.000000000 +0900
++++ v110/src/config.h	2021-03-15 12:31:20.775360000 +0900
+@@ -139,6 +139,28 @@
+ #define	memcpy(dst, src, len)	memcpy((dst), (src), (size_t)(len))
+ #endif
+ 
++#if defined(__MINGW32__) && __x86_64__
++#include <strings.h>
++#include <stdint.h>
++#include <stdlib.h>
++#ifdef USE_SIGNAL
++# include <signal.h>
++#endif
++#ifdef DOUBLEALIGN
++# define ALIGNMENT sizeof(double)
++#else
++# define ALIGNMENT sizeof(char*)            /* alignment of memory */
++#endif
++#ifndef InitFileName
++#define InitFileName MakeInitFileName()
++#ifndef RelativePath
++#define RelativePath "/amscm.scm"
++#endif
++#endif
++#define prompt "> "
++#define MALLOCTYPE intptr_t
++#endif
++
+ #ifdef MPW
+ #include <strings.h>
+ #undef USE_SIGNAL
+diff -N -r -u v110.org/src/generic_os.c v110/src/generic_os.c
+--- v110.org/src/generic_os.c	1994-05-24 11:31:04.000000000 +0900
++++ v110/src/generic_os.c	2021-03-15 12:36:26.321356600 +0900
+@@ -166,6 +166,23 @@
+ #include <console.h>
+ #endif
+ 
++#ifdef __MINGW32__
++extern uint32_t GetModuleFileNameA(void*, char*, uint32_t);
++
++char *
++MakeInitFileName()
++{
++	static char buf[PATH_MAX];
++	int i;
++
++	uint32_t size = GetModuleFileNameA(NULL, buf, sizeof(buf));
++	for(i = size; i>0 && buf[i]!='\\' && buf[i]!='/'; i--);
++	if(i) buf[i]='\0';
++	strcat(buf, RelativePath);
++	return buf;
++}
++#endif
++
+ main(argc, argv)
+ int argc;
+ char *argv[];
+diff -N -r -u v110.org/src/init.c v110/src/init.c
+--- v110.org/src/init.c	1994-05-24 11:31:04.000000000 +0900
++++ v110/src/init.c	2021-03-15 00:30:04.815323200 +0900
+@@ -353,7 +353,7 @@
+ 
+     if ((Heap1 = (char *)malloc(MALLOCCAST(Heap_Size))) == NULL)
+         goto INIT_FAILED;
+-    if ((long)Heap1 <= (long)OP_MAXNUM) {
++    if ((MALLOCTYPE)Heap1 <= (MALLOCTYPE)OP_MAXNUM) {
+         char *new = (char *)malloc(MALLOCCAST(Heap_Size));
+         free(Heap1);
+         if (new == NULL) goto INIT_FAILED;
+@@ -361,7 +361,7 @@
+     }
+     if ((Heap2 = (char *)malloc(MALLOCCAST(Heap_Size))) == NULL)
+         goto INIT_FAILED;
+-    if ((long)Heap2 <= (long)OP_MAXNUM) {
++    if ((MALLOCTYPE)Heap2 <= (MALLOCTYPE)OP_MAXNUM) {
+         char *new = (char *)malloc(MALLOCCAST(Heap_Size));
+         free(Heap2);
+         if (new == NULL) goto INIT_FAILED;
+diff -N -r -u v110.org/src/Makefile v110/src/Makefile
+--- v110.org/src/Makefile	1970-01-01 09:00:00.000000000 +0900
++++ v110/src/Makefile	2021-03-15 13:24:29.407369600 +0900
+@@ -0,0 +1,23 @@
++#
++# Makefile for MINGW64 (First check config.h)
++#
++
++CC = cc  # or gcc if you prefer
++
++# It is safe to define DOUBLEALIGN in all cases, though there might
++# be some penalty in memory efficiency.
++CFLAGS = -std=c89 -O -DRelativePath="\"/../share/amscm/amscm.scm\""
++
++#
++OBJS = amscm.o error.o eval.o generic_os.o int.o init.o memory.o mk.o \
++       numop.o prim.o print.o read.o
++
++all : amscm.exe
++
++amscm.exe : $(OBJS)
++	$(CC) -o amscm $(CFLAGS) $(OBJS) -lm
++
++$(OBJS) : config.h op.h amscm.h prim.h
++
++clean :
++	rm -f core *.o amscm.exe *~
+diff -N -r -u v110.org/src/mk.c v110/src/mk.c
+--- v110.org/src/mk.c	1994-05-24 11:31:04.000000000 +0900
++++ v110/src/mk.c	2021-03-15 00:31:50.136426800 +0900
+@@ -412,7 +412,7 @@
+     pointer x, *copy, *p, *q;
+     long len;
+ 
+-    len = ((long)cont - (long)stackbottom)/sizeof(pointer) + 1;
++    len = ((MALLOCTYPE)cont - (MALLOCTYPE)stackbottom)/sizeof(pointer) + 1;
+     x = (pointer)Get_Heap(VECTORSIZE(len));
+     copy = cont_copy(x);
+     for (p = stackbottom, q = copy ; p <= cont ; ++p, ++q)
+diff -N -r -u v110.org/src/print.c v110/src/print.c
+--- v110.org/src/print.c	1994-05-24 11:31:05.000000000 +0900
++++ v110/src/print.c	2021-03-15 00:29:11.578306300 +0900
+@@ -19,7 +19,7 @@
+     *++stack = (pointer)(a); }
+ 
+ #define p_return {                             \
+-    pr_operator = (int)*stack--;               \
++    pr_operator = (MALLOCTYPE)*stack--;               \
+     list = *stack--;                           \
+     goto LOOP; }
+ 
