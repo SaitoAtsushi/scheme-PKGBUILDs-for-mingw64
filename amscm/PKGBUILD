@@ -6,7 +6,7 @@ pkgrel=1
 pkgdesc="R4RS conformant Scheme interpreter designed small computers in mind."
 arch=('any')
 url="https://www.vector.co.jp/soft/dl/dos/prog/se010205.html"
-license=('unknown')
+license=('custom')
 depends=()
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-make")
 source=("https://ftp.vector.co.jp/01/02/509/amscm110.tgz"
@@ -16,6 +16,7 @@ sha256sums=('551efe25dc246226d2516ff62d014dc1ecbd4d2645434b1ce8deace0876af24b'
 
 prepare() {
   cd ${srcdir}/v110
+  sed -n '/Copyright:/,/PURPOSE./p' README > LICENSE
   patch -p1 -i ${srcdir}/amscm-mingw.patch
 }
 
@@ -28,4 +29,5 @@ package() {
   cd ${srcdir}/v110/src
   install -D -s amscm.exe "${pkgdir}/${MINGW_PREFIX}/bin/amscm.exe"
   install -D amscm.scm "${pkgdir}/${MINGW_PREFIX}/share/amscm/amscm.scm"
+  install -D ../LICENSE "${pkgdir}/${MINGW_PREFIX}/share/licenses/amscm/LICENSE"
 }
