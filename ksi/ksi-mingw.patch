@@ -1,0 +1,256 @@
+diff -u -r ksi-3.9.0.org/interp/Makefile.in ksi-3.9.0/interp/Makefile.in
+--- ksi-3.9.0.org/interp/Makefile.in	2010-03-01 21:24:32.000000000 +0900
++++ ksi-3.9.0/interp/Makefile.in	2021-03-16 18:43:22.379204400 +0900
+@@ -212,7 +212,7 @@
+ INCLUDES = -I$(si_srcdir)
+ ksi_SOURCES = ksi.c
+ ksi_LDADD = $(top_builddir)/si/libksi.la @KSI_LIBS@ @READLINE_LIB@
+-ksi_LDFLAGS = -export-dynamic
++ksi_LDFLAGS = -shared
+ initpkgdatadir = $(pkgdatadir)/$(KSI_MAJOR_VERSION).$(KSI_MINOR_VERSION).$(KSI_PATCH_LEVEL)
+ initpkgdata_DATA = Boot.scm
+ CLEANFILES = *~
+diff -u -r ksi-3.9.0.org/si/ksi_conf.c ksi-3.9.0/si/ksi_conf.c
+--- ksi-3.9.0.org/si/ksi_conf.c	2010-04-12 04:37:27.000000000 +0900
++++ ksi-3.9.0/si/ksi_conf.c	2021-03-17 02:11:51.656201100 +0900
+@@ -154,16 +154,10 @@
+                             break;
+                     dir[i] = '\0';
+ 
+-                    /* lib subdir exists in the dll directory? */
+-                    p = ksi_aprintf ("%s\\%d.%d.%d", dir, KSI_MAJOR_VERSION, KSI_MINOR_VERSION, KSI_PATCH_LEVEL);
++                    /* now try parent directory */
++                    p = ksi_aprintf ("%s\\..\\share\\ksi\\%d.%d.%d", dir, KSI_MAJOR_VERSION, KSI_MINOR_VERSION, KSI_PATCH_LEVEL);
+                     if (access (p, F_OK) == 0) {
+                         lib = ksi_expand_file_name (p);
+-                    } else {
+-                        /* now try parent directory */
+-                        p = ksi_aprintf ("%s\\..\\%d.%d.%d", dir, KSI_MAJOR_VERSION, KSI_MINOR_VERSION, KSI_PATCH_LEVEL);
+-                        if (access (p, F_OK) == 0) {
+-                            lib = ksi_expand_file_name (p);
+-                        }
+                     }
+                 } else {
+                     ksi_exn_error(0, 0, "unknown module filename: %s", ksi_get_last_error(""));
+diff -u -r ksi-3.9.0.org/si/ksi_env.c ksi-3.9.0/si/ksi_env.c
+--- ksi-3.9.0.org/si/ksi_env.c	2010-04-21 01:59:31.000000000 +0900
++++ ksi-3.9.0/si/ksi_env.c	2021-03-17 00:18:58.641914300 +0900
+@@ -37,7 +37,7 @@
+     return (KSI_OBJ_IS(x, KSI_TAG_ENVIRON) ? ksi_true : ksi_false);
+ }
+ 
+-static unsigned
++static uintptr_t
+ hash_envrec (void* r, unsigned n, void* data)
+ {
+     ksi_obj sym = ((ksi_envrec) r) -> sym;
+@@ -71,7 +71,7 @@
+     return env;
+ }
+ 
+-static unsigned
++static uintptr_t
+ hash_env (void* obj, unsigned num, void* unused)
+ {
+     return ksi_hasher(KSI_ENV_NAME(obj), num, 100);
+diff -u -r ksi-3.9.0.org/si/ksi_gc.h ksi-3.9.0/si/ksi_gc.h
+--- ksi-3.9.0.org/si/ksi_gc.h	2010-04-12 03:28:38.000000000 +0900
++++ ksi-3.9.0/si/ksi_gc.h	2021-03-17 00:26:13.742261100 +0900
+@@ -35,7 +35,7 @@
+ 
+ typedef void (*ksi_finalizer_function) (void *obj, void *client_data);
+ 
+-typedef void (*ksi_gc_warn_function) (char* msg, unsigned long arg);
++typedef void (*ksi_gc_warn_function) (char* msg, uintptr_t arg);
+ 
+ 
+ #ifdef __cplusplus
+diff -u -r ksi-3.9.0.org/si/ksi_hash.c ksi-3.9.0/si/ksi_hash.c
+--- ksi-3.9.0.org/si/ksi_hash.c	2010-04-12 03:28:45.000000000 +0900
++++ ksi-3.9.0/si/ksi_hash.c	2021-03-17 00:06:40.387979700 +0900
+@@ -105,10 +105,10 @@
+         return ksi_hash_inst(x, n, d);
+     }
+ 
+-    return ((unsigned) x) % n;
++    return ((uintptr_t) x) % n;
+ }
+ 
+-static unsigned
++static uintptr_t
+ hash_rec (void *v, unsigned size, void *data)
+ {
+     ksi_obj hash = KSI_HASHTAB_HASH(data);
+@@ -119,12 +119,12 @@
+         if (!cmp || cmp == ksi_data->eq_proc) {
+             if (KSI_OBJ_IS(key, KSI_TAG_IMM) || KSI_SYM_P(key) || KSI_KEY_P(key))
+                 return ksi_hasher(key, size, 0);
+-            return ((unsigned) key) % size;
++            return ((uintptr_t) key) % size;
+         }
+         if (cmp == ksi_data->eqv_proc) {
+             if (KSI_OBJ_IS(key, KSI_TAG_IMM) || KSI_SYM_P(key) || KSI_KEY_P(key) || KSI_CHAR_P(key) || KSI_NUM_P(key))
+                 return ksi_hasher(key, size, 0);
+-            return ((unsigned) key) % size;
++            return ((uintptr_t) key) % size;
+         }
+         return ksi_hasher(key, size, 100);
+     }
+diff -u -r ksi-3.9.0.org/si/ksi_jump.c ksi-3.9.0/si/ksi_jump.c
+--- ksi-3.9.0.org/si/ksi_jump.c	2010-04-12 03:29:15.000000000 +0900
++++ ksi-3.9.0/si/ksi_jump.c	2021-03-17 00:21:20.550628600 +0900
+@@ -78,15 +78,15 @@
+ static void
+ restore_stack (ksi_stack a, struct Ksi_Jump* buf)
+ {
+-    unsigned junk[100];
++    uintptr_t junk[100];
+ 
+ #if KSI_STACK_GROWS_UP
+-    junk[0]  = (unsigned) KSI_STK_CMP(&junk[0], (buf->from + buf->size));
++    junk[0]  = (uintptr_t) KSI_STK_CMP(&junk[0], (buf->from + buf->size));
+ #else
+-    junk[0]  = (unsigned) KSI_STK_CMP(&junk[0], buf->from);
++    junk[0]  = (uintptr_t) KSI_STK_CMP(&junk[0], buf->from);
+ #endif
+-    junk[1]  = (unsigned) a[1];
+-    junk[99] = (unsigned) junk;
++    junk[1]  = (uintptr_t) a[1];
++    junk[99] = (uintptr_t) junk;
+ 
+     uncopy_stack (junk, buf);
+ }
+@@ -181,7 +181,7 @@
+ ksi_obj
+ ksi_set_jump (ksi_jump b, ksi_stack start)
+ {
+-    unsigned here;
++    uintptr_t here;
+ 
+     KSI_ASSERT (ksi_int_data);
+ 
+@@ -196,7 +196,7 @@
+ void
+ ksi_long_jump (ksi_jump buf, ksi_obj val)
+ {
+-    unsigned z[2];
++    uintptr_t z[2];
+ 
+     KSI_ASSERT (ksi_int_data);
+ 
+@@ -209,11 +209,11 @@
+         longjmp (buf->j_buf, 1);
+ 
+ #if KSI_STACK_GROWS_UP
+-    z[0] = (unsigned) KSI_STK_CMP(&z[0], (buf->from + buf->size));
++    z[0] = (uintptr_t) KSI_STK_CMP(&z[0], (buf->from + buf->size));
+ #else
+-    z[0] = (unsigned) KSI_STK_CMP(&z[0], buf->from);
++    z[0] = (uintptr_t) KSI_STK_CMP(&z[0], buf->from);
+ #endif
+-    z[1] = (unsigned) z;
++    z[1] = (uintptr_t) z;
+ 
+     uncopy_stack (z, buf);
+ }
+diff -u -r ksi-3.9.0.org/si/ksi_jump.h ksi-3.9.0/si/ksi_jump.h
+--- ksi-3.9.0.org/si/ksi_jump.h	2010-04-12 03:29:21.000000000 +0900
++++ ksi-3.9.0/si/ksi_jump.h	2021-03-17 00:14:24.558430300 +0900
+@@ -32,7 +32,7 @@
+ 
+ #include <setjmp.h>
+ 
+-typedef unsigned *ksi_stack;
++typedef uintptr_t *ksi_stack;
+ 
+ typedef struct Ksi_Wind *ksi_wind;
+ typedef struct Ksi_Jump *ksi_jump;
+diff -u -r ksi-3.9.0.org/si/ksi_port.c ksi-3.9.0/si/ksi_port.c
+--- ksi-3.9.0.org/si/ksi_port.c	2010-04-12 03:30:00.000000000 +0900
++++ ksi-3.9.0/si/ksi_port.c	2021-03-17 00:05:43.458259300 +0900
+@@ -341,7 +341,7 @@
+   }
+ 
+   if (port->kp.is_tty) {
+-    long  h = _get_osfhandle (port->fd);
++    intptr_t  h = _get_osfhandle (port->fd);
+     DWORD r = WaitForSingleObject ((HANDLE) h, 0);
+     return (r == WAIT_OBJECT_0 ? 1 : 0);
+   }
+diff -u -r ksi-3.9.0.org/si/ksi_printf.c ksi-3.9.0/si/ksi_printf.c
+--- ksi-3.9.0.org/si/ksi_printf.c	2010-04-12 03:30:14.000000000 +0900
++++ ksi-3.9.0/si/ksi_printf.c	2021-03-16 23:59:52.298293100 +0900
+@@ -492,7 +492,7 @@
+           spec.plus  = 0;
+           spec.space = 0;
+           ptr = va_arg(args, void *);
+-          str = uint2str((unsigned) ptr, spec.base, 0, int_buf, sizeof int_buf);
++          str = uint2str((uintptr_t) ptr, spec.base, 0, int_buf, sizeof int_buf);
+           printf_int(output, str, &spec);
+           break;
+         case 'c':
+diff -u -r ksi-3.9.0.org/si/ksi_sign.c ksi-3.9.0/si/ksi_sign.c
+--- ksi-3.9.0.org/si/ksi_sign.c	2010-04-12 03:30:50.000000000 +0900
++++ ksi-3.9.0/si/ksi_sign.c	2021-03-17 00:32:48.255806600 +0900
+@@ -73,7 +73,7 @@
+ #if defined(WIN32)
+ 
+ void
+-ksi_init_signals (ksi_env env)
++ksi_init_signals ()
+ {
+ }
+ 
+diff -u -r ksi-3.9.0.org/si/ksi_type.c ksi-3.9.0/si/ksi_type.c
+--- ksi-3.9.0.org/si/ksi_type.c	2010-04-25 00:50:31.000000000 +0900
++++ ksi-3.9.0/si/ksi_type.c	2021-03-17 00:17:41.794423600 +0900
+@@ -34,7 +34,7 @@
+ #include "ksi_util.h"
+ 
+ 
+-static unsigned
++static uintptr_t
+ hash_sym (void* obj, unsigned num, void* unused)
+ {
+     return ksi_hash_str (KSI_SYM_PTR (obj), KSI_SYM_LEN (obj), num);
+diff -u -r ksi-3.9.0.org/si/ksi_util.c ksi-3.9.0/si/ksi_util.c
+--- ksi-3.9.0.org/si/ksi_util.c	2010-04-12 03:31:33.000000000 +0900
++++ ksi-3.9.0/si/ksi_util.c	2021-03-17 00:01:17.586325800 +0900
+@@ -230,9 +230,13 @@
+ const char *
+ ksi_tilde_expand (const char *name)
+ {
++#ifdef unix
+     int len;
++#endif
+     const char *p;
++#ifdef unix
+     char *res;
++#endif
+ 
+ #ifdef unix
+     struct passwd *pwPtr;
+diff -u -r ksi-3.9.0.org/si/ksi_vtab.h ksi-3.9.0/si/ksi_vtab.h
+--- ksi-3.9.0.org/si/ksi_vtab.h	2010-04-12 03:31:56.000000000 +0900
++++ ksi-3.9.0/si/ksi_vtab.h	2021-03-17 00:15:34.394406300 +0900
+@@ -34,7 +34,7 @@
+ #include "ksi_gc.h"
+ 
+ 
+-typedef unsigned (*ksi_hash_f) (void* val, unsigned size, void* data);
++typedef uintptr_t (*ksi_hash_f) (void* val, unsigned size, void* data);
+ typedef int      (*ksi_cmp_f)  (void* v1, void* v2, void* data);
+ typedef int      (*ksi_iter_f) (void* val, void* iter_data);
+ 
+diff -u -r ksi-3.9.0.org/si/ksi_writ.c ksi-3.9.0/si/ksi_writ.c
+--- ksi-3.9.0.org/si/ksi_writ.c	2010-04-26 00:35:39.000000000 +0900
++++ ksi-3.9.0/si/ksi_writ.c	2021-03-17 00:01:57.564329300 +0900
+@@ -558,7 +558,7 @@
+     return ksi_long2num(0);
+   if (x == ksi_true)
+     return ksi_long2num(1);
+-  return ksi_ulong2num ((unsigned long) x);
++  return ksi_ulong2num ((uintptr_t) x);
+ }
+ 
+ int

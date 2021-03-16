@@ -1,0 +1,32 @@
+_realname=ksi
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=3.9.0
+pkgrel=1
+pkgdesc="A portable, embedable Scheme implementation written in C."
+arch=('any')
+url="http://ksi.sourceforge.net/"
+license=('custom')
+depends=("${MINGW_PACKAGE_PREFIX}-gc" "${MINGW_PACKAGE_PREFIX}-gmp" "${MINGW_PACKAGE_PREFIX}-readline" "${MINGW_PACKAGE_PREFIX}-winpthreads-git" "${MINGW_PACKAGE_PREFIX}-termcap")
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "make" "${MINGW_PACKAGE_PREFIX}-libwinpthread-git")
+source=("https://iweb.dl.sourceforge.net/project/ksi/ksi/ksi-3.9.0/ksi-3.9.0.tar.gz"
+        "ksi-mingw.patch")
+sha256sums=('a117fb1e057b9183f7f7693d335aa73dfe17ded016521c0f4a6b8c986b87b92b'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  patch -p1 -i ${srcdir}/ksi-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  ./configure --prefix=${MINGW_PREFIX} CPPFLAGS="-D__CRT__NO_INLINE -DWIN32" CFLAGS="-Wno-parentheses"
+  make
+}
+
+package() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  make DESTDIR=${pkgdir} install
+  install -D COPYING ${pkgdir}/${MINGW_PREFIX}/share/licenses/ksi/LICENSE
+}
