@@ -1,0 +1,35 @@
+_realname=vx-scheme
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=0.7
+pkgrel=1
+pkgdesc="A compact implementation of an R4RS Scheme interpreter in C++, together with a bytecode compiler."
+arch=('any')
+url="https://code.google.com/archive/p/vx-scheme/"
+license=('custom')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "unzip" "make")
+source=("vx-scheme-0.7.zip::https://storage.googleapis.com/google-code-archive-source/v2/code.google.com/vx-scheme/source-archive.zip"
+        "vx-scheme-mingw.patch")
+noextract=("vx-scheme-0.7.zip")
+sha256sums=('0c736b078c6d4ab1f3b6c04c8f0353d466498e5ace5da1784701b1872b4d53b1'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}
+  unzip vx-scheme-0.7.zip
+  cd ${srcdir}/vx-scheme/trunk/src
+  patch -i ${srcdir}/vx-scheme-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/vx-scheme/trunk/src
+  make
+}
+
+package() {
+  cd ${srcdir}/vx-scheme/trunk
+  install -D -s src/vxs-interp.exe ${pkgdir}/${MINGW_PREFIX}/bin/vxs-interp.exe
+  install -D -s src/vx-scheme.exe ${pkgdir}/${MINGW_PREFIX}/bin/vx-scheme.exe
+  install -D LICENSE ${pkgdir}/${MINGW_PREFIX}/share/licenses/vx-scheme/LICENSE
+}

@@ -1,0 +1,62 @@
+diff -r -u Makefile Makefile
+--- Makefile	2016-02-14 11:11:37.000000000 +0900
++++ Makefile	2021-03-17 17:30:17.664525800 +0900
+@@ -11,21 +11,21 @@
+ UNIX_OBJ        = u-main.o
+ PROGRAM		= vx-scheme
+ DEFVER          = -DVERSION=$(VERSION)
+-CFLAGS		= -ansi -g -O2 -fno-exceptions -fno-rtti -Wall $(DEFVER)
+-CC		= gcc	
++CFLAGS		= -ansi -g -O2 -fno-exceptions -fno-rtti -Wall -Wno-parentheses -Wno-dangling-else $(DEFVER)
++CC		= g++
+ TC              = ../testcases
+ 
+ 
+ all:		vxs-interp vx-scheme
+ 
+ vxs-interp:	$(INTERP_OBJ) $(UNIX_OBJ)
+-		$(CC) $(CFLAGS) -o $@ $^ -lstdc++ -lc -lm
++		$(CC) $(CFLAGS) -o $@ $^
+ 
+ vxs-bootstrap:	$(BOOTSTRAP_OBJ) $(UNIX_OBJ)
+-		$(CC) $(CFLAGS) -o $@ $^ -lstdc++ -lc -lm
++		$(CC) $(CFLAGS) -o $@ $^
+ 
+ vx-scheme:	$(VM_COMP_OBJ) $(UNIX_OBJ)
+-		$(CC) $(CFLAGS) -o $@ $^ -lstdc++ -lc -lm
++		$(CC) $(CFLAGS) -o $@ $^
+ 
+ _library.cpp _compiler.cpp: compiler.scm bootstrap.scm library.scm vxs-bootstrap
+ 		./vxs-bootstrap . < bootstrap.scm
+diff -r -u subr.cpp subr.cpp
+--- subr.cpp	2016-02-14 11:11:37.000000000 +0900
++++ subr.cpp	2021-03-17 17:32:03.820486300 +0900
+@@ -10,6 +10,7 @@
+ 
+ #include "vx-scheme.h"
+ #include <fstream>
++#include <limits>
+ #include <float.h>
+ #include <math.h>
+ #include <errno.h>
+@@ -799,7 +800,7 @@
+ 	{
+ 	case Cell::Int :
+ 	    {
+-	    char *  fmt = "%d";
++	    const char *  fmt = "%d";
+ 
+ 	    if (cdr (arglist) != nil)
+ 		{
+diff -r -u vx-scheme.h vx-scheme.h
+--- vx-scheme.h	2016-02-14 11:11:37.000000000 +0900
++++ vx-scheme.h	2021-03-17 18:08:59.813087700 +0900
+@@ -684,7 +684,7 @@
+     // comparing two cells in the sense of "eq?".  We ignore the
+     // pieces having to do with lexical addresses.
+ 
+-    static const unsigned int    IGNORE    = QUICK | GLOBAL | (~0 << 16);
++    static const uintptr_t       IGNORE    = QUICK | GLOBAL | (~0 << 16);
+     static const unsigned int    IGN_MASK  = ~IGNORE;
+ 
+     static const char * typeName  [NUM_TYPES];
