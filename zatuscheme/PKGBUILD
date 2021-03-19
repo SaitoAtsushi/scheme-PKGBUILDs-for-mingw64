@@ -1,0 +1,27 @@
+_realname=zatuscheme
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=20160403
+pkgrel=1
+pkgdesc="A Scheme interpreter of R5RS."
+arch=('any')
+url="https://github.com/y2q-actionman/zatuscheme"
+license=('custom')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-make")
+source=("zatuscheme-804ceac.tar.gz::https://codeload.github.com/y2q-actionman/zatuscheme/tar.gz/804ceac367c46ad8c85dfb891b6116b2f90ef4ac")
+sha256sums=('49d8c8b2bd818f2840818202e436be51b74f4a9dc53aad805c72056ad8b7569f')
+
+build() {
+  cd ${srcdir}/zatuscheme-804ceac367c46ad8c85dfb891b6116b2f90ef4ac
+  autoreconf --install
+  automake
+  ./configure --prefix=/usr
+  mingw32-make
+}
+
+package() {
+  cd ${srcdir}/zatuscheme-804ceac367c46ad8c85dfb891b6116b2f90ef4ac
+  install -D -s src/zatuscheme.exe ${pkgdir}/${MINGW_PREFIX}/bin/zatuscheme.exe
+  install -D COPYING ${pkgdir}/${MINGW_PREFIX}/share/licenses/zatuscheme/COPYING
+}
