@@ -1,0 +1,32 @@
+_realname=ischeme
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=20170827
+pkgrel=1
+pkgdesc="A embedded scheme interpreter will fully implements of R5RS."
+arch=('any')
+url="https://github.com/yuanjq/ischeme"
+license=('unknown')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-make" "sed")
+source=("ischeme-f4ff006.tar.gz::https://codeload.github.com/yuanjq/ischeme/tar.gz/f4ff0067e1be6eb6acf24bac5f8be8724d38e9f0"
+        "ischeme-mingw.patch")
+sha256sums=('8cc49b9b765a566555d3b887daf17501531d217fe15d9b89fb0e4bcdda29a992'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/ischeme-f4ff0067e1be6eb6acf24bac5f8be8724d38e9f0
+  patch -p1 -i ${srcdir}/ischeme-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/ischeme-f4ff0067e1be6eb6acf24bac5f8be8724d38e9f0
+  mingw32-make 
+}
+
+package() {
+  cd ${srcdir}/ischeme-f4ff0067e1be6eb6acf24bac5f8be8724d38e9f0
+  install -D -s ischeme.exe ${pkgdir}/${MINGW_PREFIX}/bin/ischeme.exe
+  install -D -s libischeme.dll ${pkgdir}/${MINGW_PREFIX}/bin/libischeme.dll
+  install -D ischeme.h ${pkgdir}/${MINGW_PREFIX}/include/ischeme.h
+}

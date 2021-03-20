@@ -1,0 +1,94 @@
+diff --git a/Makefile b/Makefile
+index 745f478..f9fa5b8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,17 +1,17 @@
+ DEBUG = 1
+ CXX = g++
+ ifeq ($(DEBUG), 1)
+-CXXFLAGS += -std=c++11
++CXXFLAGS += -std=c++11 -Wno-invalid-offsetof
+ else
+-CXXFLAGS += -std=c++11 -O2
++CXXFLAGS += -std=c++11 -O2 -Wno-invalid-offsetof
+ endif
+ CLIBFLAGS = -fPIC
+ LDFLAGS += -lm
+ 
+-TARGET = ischeme
++TARGET = ischeme.exe
+ TARGET_HEADER = ischeme.h
+ TARGET_LIB_DIR = lib
+-TARGET_SO = libischeme.so
++TARGET_SO = libischeme.dll
+ INSTALL_DIR = /usr/local
+ INSTALL_LIB_DIR = $(INSTALL_DIR)/lib/ischeme
+ CXXFLAGS += -DISC_LIB_DIR=\"$(INSTALL_LIB_DIR)\"
+@@ -26,6 +26,9 @@ $(TARGET): $(TARGET_SO)
+ 	$(CXX) -o $@ main.cc $(CXXFLAGS) $(LDFLAGS) -L. -lischeme
+ $(TARGET_SO): $(OBJ)
+ 	$(CXX) -shared -o $@ $^ $(LDFLAGS)
++init.h: lib/init.isc
++	echo "char init[]=\"" `sed -e 's/\\"/\\\\"/g' lib/init.isc |tr -d "\n"` "\";" >$@
++ischeme.cc: init.h
+ $(OBJ): $(OBJ_DIR)/%.o : %.cc
+ 	@mkdir -p $(OBJ_DIR)
+ 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(CLIBFLAGS)
+diff --git a/ischeme.cc b/ischeme.cc
+index 3a510a2..f1e9869 100644
+--- a/ischeme.cc
++++ b/ischeme.cc
+@@ -4,6 +4,10 @@
+ #include <math.h>
+ #include <fcntl.h>
+ #include <unistd.h>
++#ifdef __MINGW32__
++#include <conio.h>
++#include "init.h"
++#endif
+ #include "ischeme.h"
+ #include "cell.h"
+ 
+@@ -355,6 +359,9 @@ Cell *write_string(Cell *ctx, Cell *out, const char *s) {
+ 
+ static int char_ready_p (Cell *port) {
+     FILE *in = port_file(port);
++#ifdef __MINGW32__
++    if (_isatty(fileno(in))) return _kbhit() ? true : false;
++#else
+     int flags = fcntl(fileno(in), F_GETFL), res;
+     if (!(flags & O_NONBLOCK)) fcntl(fileno(in), F_SETFL, flags | O_NONBLOCK);
+     res = getc(in);
+@@ -364,6 +371,7 @@ static int char_ready_p (Cell *port) {
+         return false;
+     }
+     ungetc(res, in);
++#endif
+     return true;
+ }
+ 
+@@ -3740,7 +3748,11 @@ Cell *ischeme_ctx_new() {
+     }
+     env_add(ctx, std_env, internal(ctx, "call/cc"),
+             cdr(find_env(std_env, internal(ctx, g_opcodes[OP_CALLCC].name))));
++#ifdef __MINGW32__
++    c = mk_port(ctx, std::begin(init), std::end(init), PORT_INPUT_STRING);
++#else
+     c = ischeme_port_new(ctx, PORT_INPUT_FILE, ISC_LIB_DIR "/init.isc");
++#endif
+     ischeme_eval(ctx, c);
+     ischeme_port_close(ctx, c);
+     gc_release(ctx);
+diff --git a/macro.cc b/macro.cc
+index dca4b93..535fbf2 100644
+--- a/macro.cc
++++ b/macro.cc
+@@ -84,7 +84,7 @@ static Cell *sequence_matcher_add(Cell *ctx, Cell *seq, Cell *sub) {
+     return CELL_TRUE;
+ }
+ 
+-static Cell *sequence_expander_add(Cell *ctx, Cell *seq, Cell *sub) {
++static void sequence_expander_add(Cell *ctx, Cell *seq, Cell *sub) {
+     if (expander_name(seq) == NULL) {
+         if (expander_type(sub) == ExpanderVariable)
+             expander_name(seq) = cons(ctx, expander_name(sub), CELL_NIL);
