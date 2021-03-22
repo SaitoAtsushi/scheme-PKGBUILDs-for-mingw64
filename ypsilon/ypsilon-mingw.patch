@@ -1,0 +1,897 @@
+diff --git a/Makefile b/Makefile
+index eb54e43..0f006e0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -265,6 +265,12 @@ ifneq (,$(findstring Darwin, $(UNAME)))
+   endif
+ endif
+ 
++ifneq (,$(findstring MINGW, $(UNAME)))
++  CXX = g++
++  CXXFLAGS += -march=native -fno-omit-frame-pointer -m64
++  LDLIBS = -lws2_32 -lShlwapi
++endif
++
+ OBJS = $(patsubst %.cpp, %.o, $(filter %.cpp, $(SRCS))) $(patsubst %.s, %.o, $(filter %.s, $(SRCS)))
+ DEPS = $(patsubst %.cpp, %.d, $(filter %.cpp, $(SRCS)))
+ 
+@@ -274,7 +280,7 @@ all: $(PROG) $(EXTS)
+ 	@mkdir -p -m755 $(HOME)/.ypsilon
+ 
+ $(PROG): $(OBJS)
+-	$(CXX) $(LDFLAGS) $(LDLIBS) -o $@ $^
++	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+ 
+ vm1.s: vm1.cpp
+ 	$(CXX) $(CXXFLAGS) $(CXXFLAGS_VM1) $(CPPFLAGS) \
+diff --git a/src/arith.cpp b/src/arith.cpp
+index d7d32d7..3f308a6 100644
+--- a/src/arith.cpp
++++ b/src/arith.cpp
+@@ -3918,7 +3918,7 @@ arith_exact_integer_sqrt(object_heap_t* heap, scm_obj_t obj)
+             ans.s = ans.r = MAKEFIXNUM(0);
+             return ans;
+         }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         if (value < iexpt_2n53) {
+             intptr_t iroot = (intptr_t)floor(sqrt((double)value));
+             ans.s = MAKEFIXNUM(iroot);
+@@ -4848,7 +4848,7 @@ parse_uinteger(object_heap_t* heap, const char* s, int radix, scm_obj_t* ans)
+     int digit_count = 0;
+     const char* p = s;
+     if (*p) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         int128_t value = 0;
+ #else
+         int64_t value = 0;
+diff --git a/src/arith.h b/src/arith.h
+index de1d3a5..6090248 100644
+--- a/src/arith.h
++++ b/src/arith.h
+@@ -81,7 +81,7 @@ scm_obj_t int32_to_bignum(object_heap_t* heap, int32_t value);
+ scm_obj_t int64_to_bignum(object_heap_t* heap, int64_t value);
+ scm_obj_t uint32_to_bignum(object_heap_t* heap, uint32_t value);
+ scm_obj_t uint64_to_bignum(object_heap_t* heap, uint64_t value);
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ scm_obj_t int128_to_bignum(object_heap_t* heap, int128_t value);
+ #endif
+ 
+@@ -95,7 +95,7 @@ int64_to_integer(object_heap_t* heap, int64_t value)
+ inline scm_obj_t
+ int32_to_integer(object_heap_t* heap, int32_t value)
+ {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     return MAKEFIXNUM(value);
+ #else
+     if ((value <= FIXNUM_MAX) & (value >= FIXNUM_MIN)) return MAKEFIXNUM(value);
+@@ -106,7 +106,7 @@ int32_to_integer(object_heap_t* heap, int32_t value)
+ inline scm_obj_t
+ uint32_to_integer(object_heap_t* heap, uint32_t value)
+ {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     return MAKEFIXNUM(value);
+ #else
+     if (value <= FIXNUM_MAX) return MAKEFIXNUM(value);
+diff --git a/src/fasl.cpp b/src/fasl.cpp
+index 8b615bd..5b9825a 100644
+--- a/src/fasl.cpp
++++ b/src/fasl.cpp
+@@ -105,7 +105,7 @@ fasl_printer_t::put_datum(scm_obj_t obj)
+         if (obj == MAKEFIXNUM(1)) { emit_u8(FASL_TAG_INT1); return; }
+         if (obj == MAKEFIXNUM(2)) { emit_u8(FASL_TAG_INT2); return; }
+         if (obj == MAKEFIXNUM(3)) { emit_u8(FASL_TAG_INT3); return; }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         assert(sizeof(intptr_t) == sizeof(uint64_t));
+         emit_u8(FASL_TAG_FIXNUM64);
+         emit_u64((uint64_t)FIXNUM(obj));
+@@ -266,7 +266,7 @@ fasl_reader_t::get_datum()
+         return MAKEFIXNUM(value);
+     }
+     case FASL_TAG_FIXNUM64: {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         int64_t value = (int64_t)fetch_u64();
+         return MAKEFIXNUM(value);
+ #else
+diff --git a/src/file.cpp b/src/file.cpp
+index ee3acf8..2dcc5c2 100644
+--- a/src/file.cpp
++++ b/src/file.cpp
+@@ -41,7 +41,11 @@
+     static const char*
+     win32_lasterror_message()
+     {
++#ifndef __MINGW32__
+         __declspec(thread) static char* s_last_message;
++#else
++        static __thread  char* s_last_message;
++#endif
+         if (s_last_message) {
+             LocalFree(s_last_message);
+             s_last_message = NULL;
+@@ -455,7 +459,7 @@
+             scm_string_t string = (scm_string_t)proc;
+             name = string->name;
+         }
+-        return GetProcAddress((HMODULE)hdl, name);
++        return (void*)GetProcAddress((HMODULE)hdl, name);
+     }
+ 
+     const char*
+diff --git a/src/interpreter.cpp b/src/interpreter.cpp
+index 8721b2d..40f62ed 100644
+--- a/src/interpreter.cpp
++++ b/src/interpreter.cpp
+@@ -273,7 +273,7 @@ Interpreter::display_status(VM* vm)
+         int n = strlen(rec->name);
+         if (n > name_pad) name_pad = n;
+     }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     port_puts(port, "\n  VM ADRS           STATUS CT ID");
+ #else
+     port_puts(port, "\n  VM ADRS       STATUS CT ID");
+diff --git a/src/ioerror.cpp b/src/ioerror.cpp
+index 64adc59..e8c1d13 100644
+--- a/src/ioerror.cpp
++++ b/src/ioerror.cpp
+@@ -11,7 +11,7 @@
+ #include "ioerror.h"
+ #include "arith.h"
+ 
+-#if _MSC_VER
++#if defined(_MSC_VER) && !defined(__MINGW32__)
+   #define   ETXTBSY     26
+ #endif
+ 
+diff --git a/src/main.cpp b/src/main.cpp
+index f29b85c..4598f6f 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -12,7 +12,11 @@ int main_command_line_argc;
+ char* const* main_command_line_argv;
+ 
+ #if _MSC_VER
++#ifndef __MINGW32__
+   __declspec(thread) VM* s_current_vm;
++#else
++  __thread VM* s_current_vm;
++#endif
+ #else
+   #if defined(NO_TLS)
+     pthread_key_t s_current_vm;
+diff --git a/src/nanoasm.cpp b/src/nanoasm.cpp
+index 78fede2..0916865 100644
+--- a/src/nanoasm.cpp
++++ b/src/nanoasm.cpp
+@@ -12,7 +12,7 @@
+ nanoasm_t::nanoasm_t()
+     : al(0), cl(1), dl(2), bl(3)
+     , eax(0), ecx(1), edx(2), ebx(3), esp(4), ebp(5), esi(6), edi(7)
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     , rax(0), rcx(1), rdx(2), rbx(3), rsp(4), rbp(5), rsi(6), rdi(7)
+     , r8(8), r9(9), r10(10), r11(11), r12(12), r13(13), r14(14), r15(15), rip(16)
+ #endif
+@@ -128,7 +128,7 @@ nanoasm_t::mod(uint8_t dst, const reg64_t& src)
+ nanoasm_t::aform_t
+ nanoasm_t::mod(uint8_t reg, uint8_t base, uint8_t index, uint8_t scale, intptr_t disp)
+ {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     if (disp < INT32_MIN || disp > INT32_MAX) ASSEMBLE_ERROR("displacement out of 32 bit range");
+ #endif
+     if (scale == 1) {
+@@ -199,7 +199,7 @@ nanoasm_t::mod(uint8_t reg, uint8_t base, uint8_t index, uint8_t scale, intptr_t
+         }
+         return aform;
+     }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     if (base == regcode_rip && index == undefined) {
+         aform.m_octets[0] = 0x05 + ((reg & 7) << 3);
+         aform.set_disp32(1, disp);
+@@ -512,7 +512,7 @@ nanoasm_t::commit()
+     return m_pc - m_org;
+ }
+ 
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ #define REX(X)      if (X) emit_b8(0x40+(X))
+ #else
+ #define REX(X)      do {} while(0)
+@@ -568,7 +568,7 @@ void nanoasm_t::ds(const char* s)
+     while (*s) DB(*s++); DB(0);
+ }
+ 
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     void nanoasm_t::dq(const symbol_t& symbol)
+     {
+         symbol_map_t::iterator iter = m_symbol.find(symbol);
+diff --git a/src/nanoasm.h b/src/nanoasm.h
+index f1863fe..92b1475 100644
+--- a/src/nanoasm.h
++++ b/src/nanoasm.h
+@@ -51,7 +51,7 @@ public:
+         explicit symbol_t(const char* name) : std::string(name) { }
+     };
+ 
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     const reg64_t rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi, rip;
+     const reg64_t r8, r9, r10, r11, r12, r13, r14, r15;
+ #endif
+@@ -91,7 +91,7 @@ private:
+             m_disp = disp;
+             m_base = base;
+         }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         bool direct64() const {
+             return (m_base == undefined) && (m_disp < INT32_MIN || m_disp > INT32_MAX);
+         }
+@@ -128,7 +128,7 @@ private:
+             m_index = index;
+             m_scale = scale;
+         }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         bool direct64() const {
+             return (m_base == undefined) && (m_index == undefined) && (m_disp < INT32_MIN || m_disp > INT32_MAX);
+         }
+@@ -169,7 +169,7 @@ private:
+             m_mem64.set(undefined, direct);
+             return m_mem64;
+         }
+-    #if ARCH_LP64
++    #if ARCH_LP64 || ARCH_LLP64
+         const mem64_t& operator[](const reg64_t& reg) {
+             m_mem64.set(reg.m_regcode, 0);
+             return m_mem64;
+@@ -197,7 +197,7 @@ private:
+             m_mem32.set(undefined, direct);
+             return m_mem32;
+         }
+-    #if ARCH_LP64
++    #if ARCH_LP64 || ARCH_LLP64
+         const mem32_t& operator[](const reg64_t& reg) {
+             m_mem32.set(reg.m_regcode, 0);
+             return m_mem32;
+@@ -225,7 +225,7 @@ private:
+             m_mem8.set(undefined, direct);
+             return m_mem8;
+         }
+-    #if ARCH_LP64
++    #if ARCH_LP64 || ARCH_LLP64
+         const mem8_t& operator[](const reg64_t& reg) {
+             m_mem8.set(reg.m_regcode, 0);
+             return m_mem8;
+@@ -268,7 +268,7 @@ public:
+     dword_t dword;
+     byte_t byte;
+ 
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     friend amode_t operator+(const reg64_t&, intptr_t);
+     friend amode_t operator+(const amode_t&, intptr_t);
+     friend amode_t operator-(const reg64_t&, intptr_t);
+@@ -339,7 +339,7 @@ public:
+     void ds(const char* s);
+     void dd(uint32_t u32);
+     void dq(uint64_t u64);
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     void dq(const symbol_t& symbol);
+ #else
+     void dd(const symbol_t& symbol);
+@@ -349,7 +349,7 @@ public:
+ 
+ };
+ 
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     inline nanoasm_t::amode_t operator+(const nanoasm_t::reg64_t& base, intptr_t disp) {
+         return nanoasm_t::amode_t(base.m_regcode, disp);
+     }
+diff --git a/src/nanoasm.inc.cpp b/src/nanoasm.inc.cpp
+index 7a3e74a..c78caeb 100644
+--- a/src/nanoasm.inc.cpp
++++ b/src/nanoasm.inc.cpp
+@@ -1822,7 +1822,7 @@ void nanoasm_t::sar(const mem64si_t& dst, const reg8_t& src) {
+ void nanoasm_t::inc(const reg8_t& dst) {
+     DB(0xFE); MOD(0, dst);
+ }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void nanoasm_t::inc(const reg32_t& dst) {
+     DB(0xFF); MOD(0, dst);
+ }
+@@ -1862,7 +1862,7 @@ void nanoasm_t::inc(const mem64si_t& dst) {
+ void nanoasm_t::dec(const reg8_t& dst) {
+     DB(0xFE); MOD(1, dst);
+ }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void nanoasm_t::dec(const reg32_t& dst) {
+     DB(0xFF); MOD(1, dst);
+ }
+@@ -3573,7 +3573,7 @@ void nanoasm_t::mov(const reg64_t& dst, const reg64_t& src) {
+     DB(0x89); MOD(src, dst);
+ }
+ void nanoasm_t::mov(const mem8_t& dst, const reg8_t& src) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     if (src.m_regcode == RAX && dst.direct64()) {
+         DB(0xA2); DQ(dst.m_disp);
+     } else {
+@@ -3589,7 +3589,7 @@ void nanoasm_t::mov(const mem8_t& dst, const reg8_t& src) {
+ #endif
+ }
+ void nanoasm_t::mov(const mem8si_t& dst, const reg8_t& src) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     if (src.m_regcode == RAX && dst.direct64()) {
+         DB(0xA2); DQ(dst.m_disp);
+     } else {
+@@ -3605,7 +3605,7 @@ void nanoasm_t::mov(const mem8si_t& dst, const reg8_t& src) {
+ #endif
+ }
+ void nanoasm_t::mov(const mem32_t& dst, const reg32_t& src) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     REX(RXB(dst));
+     DB(0x89); MOD(src, dst);
+ #else
+@@ -3617,7 +3617,7 @@ void nanoasm_t::mov(const mem32_t& dst, const reg32_t& src) {
+ #endif
+ }
+ void nanoasm_t::mov(const mem32si_t& dst, const reg32_t& src) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     REX(RXB(dst));
+     DB(0x89); MOD(src, dst);
+ #else
+@@ -3645,7 +3645,7 @@ void nanoasm_t::mov(const mem64si_t& dst, const reg64_t& src) {
+     }
+ }
+ void nanoasm_t::mov(const reg8_t& dst, const mem8_t& src) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     if (dst.m_regcode == RAX && src.direct64()) {
+         DB(0xA0); DQ(src.m_disp);
+     } else {
+@@ -3661,7 +3661,7 @@ void nanoasm_t::mov(const reg8_t& dst, const mem8_t& src) {
+ #endif
+ }
+ void nanoasm_t::mov(const reg8_t& dst, const mem8si_t& src) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     if (dst.m_regcode == RAX && src.direct64()) {
+         DB(0xA0); DQ(src.m_disp);
+     } else {
+@@ -3677,7 +3677,7 @@ void nanoasm_t::mov(const reg8_t& dst, const mem8si_t& src) {
+ #endif
+ }
+ void nanoasm_t::mov(const reg32_t& dst, const mem32_t& src) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     REX(RXB(src));
+     DB(0x8B); MOD(dst, src);
+ #else
+@@ -3689,7 +3689,7 @@ void nanoasm_t::mov(const reg32_t& dst, const mem32_t& src) {
+ #endif
+ }
+ void nanoasm_t::mov(const reg32_t& dst, const mem32si_t& src) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     REX(RXB(src));
+     DB(0x8B); MOD(dst, src);
+ #else
+@@ -3750,7 +3750,7 @@ void nanoasm_t::mov(const mem64si_t& dst, int32_t imm32) {
+     REX(W + RXB(dst));
+     DB(0xC7); MOD(0, dst); DD(imm32);
+ }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void nanoasm_t::mov(const reg64_t& dst, const symbol_t& target) {
+     REX(W + RXB(dst));
+     DB(0xB8 + (dst.m_regcode & 7));
+@@ -3820,7 +3820,7 @@ void nanoasm_t::movsxd(const reg64_t& dst, const mem32si_t& src) {
+     REX(W + RXB(dst, src));
+     DB(0x63); MOD(dst, src);
+ }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void nanoasm_t::lea(const reg64_t& dst, const mem8_t& src) {
+     REX(W + RXB(dst, src));
+     DB(0x8D); MOD(dst, src);
+@@ -3874,7 +3874,7 @@ void nanoasm_t::lea(const reg32_t& dst, const symbol_t& target) {
+     mov(dst, target);
+ }
+ #endif
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void nanoasm_t::push(const reg64_t& src) {
+     REX(RXB(src));
+     DB(0x50 + (src.m_regcode & 7));
+@@ -3942,7 +3942,7 @@ void nanoasm_t::jmp(const symbol_t& target) {
+         DB(0xE9); REL32(target);
+     }
+ }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void nanoasm_t::jmp(const reg64_t& dst) {
+     REX(RXB(dst));
+     DB(0xFF); MOD(4, dst);
+@@ -3969,7 +3969,7 @@ void nanoasm_t::jmp(const mem32si_t& dst) {
+ void nanoasm_t::call(const symbol_t& target) {
+     DB(0xE8); REL32(target);
+ }
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void nanoasm_t::call(const reg64_t& dst) {
+     REX(RXB(dst));
+     DB(0xFF); MOD(2, dst);
+diff --git a/src/nanoasm.inc.h b/src/nanoasm.inc.h
+index 7e53159..89ea632 100644
+--- a/src/nanoasm.inc.h
++++ b/src/nanoasm.inc.h
+@@ -780,7 +780,7 @@ void mov(const mem32_t& dst, int32_t imm32);
+ void mov(const mem32si_t& dst, int32_t imm32);
+ void mov(const mem64_t& dst, int32_t imm32);
+ void mov(const mem64si_t& dst, int32_t imm32);
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void mov(const reg64_t& dst, const symbol_t& target);
+ #else
+ void mov(const reg32_t& dst, const symbol_t& target);
+@@ -800,7 +800,7 @@ void movsx(const reg64_t& dst, const mem8si_t& src);
+ void movsxd(const reg64_t& dst, const reg32_t& src);
+ void movsxd(const reg64_t& dst, const mem32_t& src);
+ void movsxd(const reg64_t& dst, const mem32si_t& src);
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void lea(const reg64_t& dst, const mem8_t& src);
+ void lea(const reg64_t& dst, const mem8si_t& src);
+ void lea(const reg64_t& dst, const mem32_t& src);
+@@ -817,7 +817,7 @@ void lea(const reg32_t& dst, const mem64_t& src);
+ void lea(const reg32_t& dst, const mem64si_t& src);
+ void lea(const reg32_t& dst, const symbol_t& target);
+ #endif
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void push(const reg64_t& src);
+ void push(const mem64_t& src);
+ void push(const mem64si_t& src);
+@@ -835,7 +835,7 @@ void pop(const mem32si_t& dst);
+ void push(int32_t imm32);
+ void jmp_short(const symbol_t& target);
+ void jmp(const symbol_t& target);
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void jmp(const reg64_t& dst);
+ void jmp(const mem64_t& dst);
+ void jmp(const mem64si_t& dst);
+@@ -845,7 +845,7 @@ void jmp(const mem32_t& dst);
+ void jmp(const mem32si_t& dst);
+ #endif
+ void call(const symbol_t& target);
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ void call(const reg64_t& dst);
+ void call(const mem64_t& dst);
+ void call(const mem64si_t& dst);
+diff --git a/src/nanoasm_macro.h b/src/nanoasm_macro.h
+index 0519b34..454463f 100644
+--- a/src/nanoasm_macro.h
++++ b/src/nanoasm_macro.h
+@@ -29,7 +29,7 @@
+ #define cl                  __ cl
+ #define dl                  __ dl
+ #define bl                  __ bl
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ #define rax                 __ rax
+ #define rcx                 __ rcx
+ #define rdx                 __ rdx
+diff --git a/src/object.h b/src/object.h
+index fe52ee8..242ce74 100644
+--- a/src/object.h
++++ b/src/object.h
+@@ -73,7 +73,7 @@ typedef scm_obj_t   scm_char_t;
+ typedef scm_obj_t   scm_fixnum_t;
+ typedef scm_obj_t   scm_inst_t;
+ 
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+   #define USE_DIGIT32   0
+   #define USE_DIGIT64   1
+   typedef uint64_t digit_t;
+@@ -385,7 +385,11 @@ OBJECT_ALIGNED(scm_gloc_rec_t) {
+ OBJECT_ALIGNED(scm_socket_rec_t) {
+     scm_hdr_t   hdr;
+     int         mode;
++#ifndef __MINGW32__
+     int         fd;
++#else
++    SOCKET      fd;
++#endif
+     int         family;
+     int         socktype;
+     int         protocol;
+@@ -440,7 +444,7 @@ struct vm_env_rec_t {           // record size is variable
+ 
+ #define FIXNUM_MAX                          (INTPTR_MAX / 2)
+ #define FIXNUM_MIN                          (INTPTR_MIN / 2)
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+   #define FIXNUM_BITS                       (64 - 1)
+ #else
+   #define FIXNUM_BITS                       (32 - 1)
+@@ -563,7 +567,7 @@ struct vm_env_rec_t {           // record size is variable
+ #define HASH_MUTABLE_SIZE(n)                ((n) + ((n) >> 1) + ((n) >> 2)) // 175%
+ #define HASH_BOUND_MAX                      UINT32_MAX
+ 
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+ #define OBJECT_SLAB_SIZE                    (8192L)
+   #define OBJECT_SLAB_SIZE_SHIFT            13
+   #define OBJECT_SLAB_THRESHOLD             (OBJECT_SLAB_SIZE / 8)  // m_shared[] and m_atomic[] in ObjectFactory in effect this value
+diff --git a/src/object_heap.cpp b/src/object_heap.cpp
+index 9a1b789..46d6fbd 100644
+--- a/src/object_heap.cpp
++++ b/src/object_heap.cpp
+@@ -28,7 +28,7 @@
+ 
+ #define DEBUG_CONCURRENT_COLLECT        0
+ #define SYNCHRONIZE_THRESHOLD(x)        ((x) - (x) / 4)
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+   #define DEFALUT_COLLECT_TRIP_BYTES    (4 * 1024 * 1024)
+ #else
+   #define DEFALUT_COLLECT_TRIP_BYTES    (2 * 1024 * 1024)
+@@ -36,7 +36,7 @@
+ #define ENSURE_REALTIME                 (5.0)       // in msec (1.0 == 0.001sec)
+ #define TIMEOUT_CHECK_EACH              (500)
+ 
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     inline int
+     bytes_to_bucket(uint32_t x) // see bit.cpp
+     {
+@@ -155,7 +155,7 @@ object_heap_t::allocate_private(size_t size)
+     m_trip_bytes += size;
+     if (m_trip_bytes >= m_collect_trip_bytes) collect();
+     int bucket = 0;
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     if (size > 16) bucket = bytes_to_bucket(size);
+ #else
+     if (size > 8) bucket = bytes_to_bucket(size);
+@@ -246,7 +246,7 @@ object_heap_t::init_common(size_t pool_size, size_t init_size)
+     m_pool_usage = 0;
+     m_pool_threshold = SYNCHRONIZE_THRESHOLD(n_tag);
+     // slab
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     assert((1 << (array_sizeof(m_collectibles) + 2)) == OBJECT_SLAB_THRESHOLD);
+     for (int n = 0; n < array_sizeof(m_collectibles); n++) m_collectibles[n].init(this, 1 << (n + 4), true);
+     for (int n = 0; n < array_sizeof(m_privates); n++) m_privates[n].init(this, 1 << (n + 4), false);
+diff --git a/src/object_heap.h b/src/object_heap.h
+index c8f5f18..a8e9812 100644
+--- a/src/object_heap.h
++++ b/src/object_heap.h
+@@ -78,7 +78,7 @@ struct relocate_info_t;
+ class object_heap_t {
+ public:
+     mutex_t                 m_lock;
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LP64
+     object_slab_cache_t     m_collectibles[8];  //   16-32-64-128-256-512-1024-2048
+     object_slab_cache_t     m_privates[8];      //   16-32-64-128-256-512-1024-2048
+ #else
+diff --git a/src/port.cpp b/src/port.cpp
+index 9703f62..a5a853f 100644
+--- a/src/port.cpp
++++ b/src/port.cpp
+@@ -52,8 +52,10 @@ static void throw_io_error(int operation, const char* message)
+ 
+ #if _MSC_VER
+ 
++#ifndef __MINGW32__
+     #define S_IRUSR         _S_IREAD
+     #define S_IWUSR         _S_IWRITE
++#endif
+ 
+     static fd_t io_open(const char* path, int oflag, int pmode)
+     {
+diff --git a/src/serialize.cpp b/src/serialize.cpp
+index c93f844..5fd5d9d 100644
+--- a/src/serialize.cpp
++++ b/src/serialize.cpp
+@@ -598,7 +598,7 @@ serializer_t::translate(scm_obj_t obj)
+     scoped_lock lock(m_tagged_datum->lock);
+     scan(obj);
+     if (m_bad != NULL) return m_bad;
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+     emit_u8(64);
+ #else
+     emit_u8(32);
+@@ -882,7 +882,7 @@ deserializer_t::translate(scm_bvector_t obj)
+         m_buf = obj->elts;
+         m_buf_tail = m_buf + obj->count;
+         if (m_buf == m_buf_tail) return NULL;
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         if (fetch_u8() != 64) return NULL;
+ #else
+         if (fetch_u8() != 32) return NULL;
+diff --git a/src/serialize.h b/src/serialize.h
+index 0d28ae8..3b60352 100644
+--- a/src/serialize.h
++++ b/src/serialize.h
+@@ -27,7 +27,7 @@ class serializer_t {
+     void emit_u64(uint64_t n);
+     void emit_bytes(const uint8_t* s, int n);
+     void emit_uintptr(uintptr_t obj) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         emit_u64((uint64_t)obj);
+ #else
+         emit_u32((uint32_t)obj);
+@@ -59,7 +59,7 @@ class deserializer_t {
+     uint64_t fetch_u64();
+     void fetch_bytes(uint8_t* p, int n);
+     uintptr_t fetch_uintptr() {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+         return fetch_u64();
+ #else
+         return fetch_u32();
+diff --git a/src/subr_base_arith.cpp b/src/subr_base_arith.cpp
+index 7139db8..56c5b99 100644
+--- a/src/subr_base_arith.cpp
++++ b/src/subr_base_arith.cpp
+@@ -594,7 +594,7 @@ subr_num_mul(VM* vm, int argc, scm_obj_t argv[])
+ {
+     if (argc == 2) {
+         if (FIXNUMP(argv[0]) & FIXNUMP(argv[1])) {
+-#if ARCH_LP64
++#if ARCH_LP64 || ARCH_LLP64
+             int128_t n128 = (int128_t)FIXNUM(argv[0]) * FIXNUM(argv[1]);
+             if ((n128 >= FIXNUM_MIN) & (n128 <= FIXNUM_MAX)) return MAKEFIXNUM((intptr_t)n128);
+             return int128_to_bignum(vm->m_heap, n128);
+diff --git a/src/subr_file.cpp b/src/subr_file.cpp
+index 04addb4..7e1b7ca 100644
+--- a/src/subr_file.cpp
++++ b/src/subr_file.cpp
+@@ -329,7 +329,19 @@ scm_obj_t
+ subr_system_share_path(VM* vm, int argc, scm_obj_t argv[])
+ {
+     if (argc == 0) {
++#ifdef __MINGW32__
++        char buf[PATH_MAX];
++        uint32_t size = GetModuleFileNameA(NULL, buf, sizeof(buf));
++        if (size) {
++            *strrchr(buf, '\\') = '\0';
++            strcat(buf, "../share/ypsilon");
++        } else {
++            return scm_false;
++        }
++        return make_string_literal(vm->m_heap, buf);
++#else
+         return make_string_literal(vm->m_heap, SYSTEM_SHARE_PATH);
++#endif
+     }
+     wrong_number_of_arguments_violation(vm, "system-share-path", 0, 0, argc, argv);
+     return scm_undef;
+@@ -340,7 +352,19 @@ scm_obj_t
+ subr_system_extension_path(VM* vm, int argc, scm_obj_t argv[])
+ {
+     if (argc == 0) {
++#ifdef __MINGW32__
++        char buf[PATH_MAX];
++        uint32_t size = GetModuleFileNameA(NULL, buf, sizeof(buf));
++        if (size) {
++            *strrchr(buf, '\\') = '\0';
++            strcat(buf, "../lib/ypsilon");
++        } else {
++            return scm_false;
++        }
++        return make_string_literal(vm->m_heap, buf);
++#else
+         return make_string_literal(vm->m_heap, SYSTEM_EXTENSION_PATH);
++#endif
+     }
+     wrong_number_of_arguments_violation(vm, "system-extension-path", 0, 0, argc, argv);
+     return scm_undef;
+diff --git a/src/sysdep.h b/src/sysdep.h
+index 97528cf..ffd0a35 100644
+--- a/src/sysdep.h
++++ b/src/sysdep.h
+@@ -7,6 +7,11 @@
+ #ifndef SYSDEP_H_INCLUDED
+ #define SYSDEP_H_INCLUDED
+ 
++#ifdef __MINGW32__
++#define _MSC_VER 1
++#define UNICODE 1
++#endif
++
+ #if defined(NO_TLS)
+   #undef NO_TLS
+   #define NO_TLS                    1
+@@ -21,16 +26,32 @@
+ #endif
+ 
+ #if _MSC_VER
++#ifdef __MINGW32__
++  #define DECLSPEC(x)
++  #define ATTRIBUTE(x)              __attribute__ ((x))
++#else
+   #define DECLSPEC(x)               __declspec(x)
+   #define ATTRIBUTE(x)
++#endif
+   #define ARCH_BIG_ENDIAN           0
+   #define ARCH_LITTLE_ENDIAN        1
++#ifdef __x86_64__
++  #define ARCH_IA32                 0
++  #define ARCH_X64                  1
++#else
+   #define ARCH_IA32                 1
+   #define ARCH_X64                  0
++#endif
+   #define ARCH_ARM                  0
++#ifdef  __x86_64__
++  #define ARCH_ILP32                0
++  #define ARCH_LP64                 0
++  #define ARCH_LLP64                1
++#else
+   #define ARCH_ILP32                1
+   #define ARCH_LP64                 0
+   #define ARCH_LLP64                0
++#endif
+ #else
+   #define DECLSPEC(x)
+   #define ATTRIBUTE(x)              __attribute__ ((x))
+@@ -116,6 +137,7 @@ extern void fatal(const char* fmt, ...) ATTRIBUTE(noreturn);
+     #include    <winsock2.h>
+     #include    <ws2tcpip.h>
+     #include    <shlwapi.h>
++	#include    <stdint.h>
+ 
+     extern "C" void __cdecl     _dosmaperr(unsigned long);
+     #define snprintf            _snprintf
+@@ -127,6 +149,7 @@ extern void fatal(const char* fmt, ...) ATTRIBUTE(noreturn);
+     #define VALUE_NAN           std::numeric_limits<double>::quiet_NaN()
+     #define VALUE_INF           std::numeric_limits<double>::infinity()
+ 
++#ifndef __MINGW32__
+     #define INT8_MIN            _I8_MIN
+     #define INT8_MAX            _I8_MAX
+     #define INT16_MIN           _I16_MIN
+@@ -158,6 +181,7 @@ extern void fatal(const char* fmt, ...) ATTRIBUTE(noreturn);
+     typedef unsigned long long  uint64_t;
+     typedef int                 ssize_t;
+     typedef int64_t             off64_t;
++#endif
+     typedef HANDLE              fd_t;
+ 
+     #define MEM_STORE_FENCE     _mm_sfence()
+@@ -188,11 +212,86 @@ extern void fatal(const char* fmt, ...) ATTRIBUTE(noreturn);
+     #define HOST_NAME_MAX       255
+     #endif
+ 
++#ifndef __MINGW32__
+     inline int      isnan(double x) { return _isnan(x); }
+     inline int      isinf(double x) { return (!_finite(x) && !_isnan(x)); }
++#endif
+     inline double   round(double x) { return (x >= 0.0) ? floor(x + 0.5) : ceil(x - 0.5); }
+     inline double   trunc(double x) { return (x >= 0.0) ? floor(x) : ceil(x); }
+ 
++#ifdef __MINGW32__
++  #if ARCH_LLP64
++    typedef int int128_t __attribute__((__mode__(TI)));
++    typedef unsigned int uint128_t __attribute__((__mode__(TI)));
++  #endif
++#endif
++
++#ifdef __MINGW32__
++
++#include <algorithm>
++#include <utility>
++#include <iterator>
++
++inline void _dosmaperr(DWORD oserrno)
++{
++  const static std::pair<int, DWORD> errmap[] = {
++    {ERROR_INVALID_FUNCTION, EINVAL},
++    {ERROR_FILE_NOT_FOUND, ENOENT},
++    {ERROR_PATH_NOT_FOUND, ENOENT},
++    {ERROR_TOO_MANY_OPEN_FILES, EMFILE},
++    {ERROR_ACCESS_DENIED, EACCES},
++    {ERROR_ARENA_TRASHED, ENOMEM},
++    {ERROR_NOT_ENOUGH_MEMORY, ENOMEM},
++    {ERROR_INVALID_BLOCK, ENOMEM},
++    {ERROR_BAD_ENVIRONMENT, E2BIG},
++    {ERROR_BAD_FORMAT, ENOEXEC},
++    {ERROR_INVALID_ACCESS, EINVAL},
++    {ERROR_INVALID_DATA, EINVAL},
++    {ERROR_INVALID_DRIVE, ENOENT},
++    {ERROR_CURRENT_DIRECTORY, EACCES},
++    {ERROR_NOT_SAME_DEVICE, EXDEV},
++    {ERROR_NO_MORE_FILES, ENOENT},
++    {ERROR_LOCK_VIOLATION, EACCES},
++    {ERROR_BAD_NETPATH, ENOENT},
++    {ERROR_NETWORK_ACCESS_DENIED, EACCES},
++    {ERROR_BAD_NET_NAME, ENOENT},
++    {ERROR_FILE_EXISTS, EEXIST},
++    {ERROR_CANNOT_MAKE, EACCES},
++    {ERROR_FAIL_I24, EACCES},
++    {ERROR_INVALID_PARAMETER, EINVAL},
++    {ERROR_NO_PROC_SLOTS, EAGAIN},
++    {ERROR_DRIVE_LOCKED, EACCES},
++    {ERROR_BROKEN_PIPE, EPIPE},
++    {ERROR_DISK_FULL, ENOSPC} ,
++    {ERROR_INVALID_TARGET_HANDLE, EBADF},
++    {ERROR_INVALID_HANDLE, EINVAL},
++    {ERROR_WAIT_NO_CHILDREN, ECHILD},
++    {ERROR_CHILD_NOT_COMPLETE, ECHILD},
++    {ERROR_DIRECT_ACCESS_HANDLE, EBADF},
++    {ERROR_NEGATIVE_SEEK, EINVAL},
++    {ERROR_SEEK_ON_DEVICE, EACCES},
++    {ERROR_DIR_NOT_EMPTY, ENOTEMPTY},
++    {ERROR_NOT_LOCKED, EACCES},
++    {ERROR_BAD_PATHNAME, ENOENT},
++    {ERROR_MAX_THRDS_REACHED, EAGAIN},
++    {ERROR_LOCK_FAILED, EACCES},
++    {ERROR_ALREADY_EXISTS, EEXIST},
++    {ERROR_FILENAME_EXCED_RANGE, ENOENT},
++    {ERROR_NESTING_NOT_ALLOWED, EAGAIN},
++    {ERROR_NOT_ENOUGH_QUOTA, ENOMEM},
++    {ERROR_OPERATION_ABORTED, EINTR}
++  };
++
++  auto result = std::find_if(std::begin(errmap),
++                             std::end(errmap),
++                             [oserrno](std::pair<int,DWORD> errpair) {
++                               return errpair.first == oserrno;
++                             });
++  errno = result == std::end(errmap) ? EINVAL : result->second;
++}
++
++#endif
++
+     inline double msec()
+     {
+         LARGE_INTEGER time;
+@@ -240,13 +339,21 @@ extern void fatal(const char* fmt, ...) ATTRIBUTE(noreturn);
+ 
+     inline VM* current_vm()
+     {
++#ifndef __MINGW32__
+         extern __declspec(thread) VM* s_current_vm;
++#else
++        extern __thread VM* s_current_vm;
++#endif
+         return s_current_vm;
+     }
+ 
+     inline void set_current_vm(VM* vm)
+     {
++#ifndef __MINGW32__
+         extern __declspec(thread) VM* s_current_vm;
++#else
++        extern __thread VM* s_current_vm;
++#endif
+         s_current_vm = vm;
+     }
+ 

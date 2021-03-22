@@ -1,0 +1,29 @@
+pkgbase=ypsilon
+pkgname=("${MINGW_PACKAGE_PREFIX}-ypsilon")
+pkgver=0.9.6.820aa1b
+pkgrel=1
+pkgdesc="The implementation of R6RS Scheme Programming Language for real-time applications"
+arch=('any')
+url="http://www.littlewingpinball.com/doc/ja/ypsilon/index.html"
+license=('BSD-3-Clause')
+depends=()
+makedepends=("cpio" "${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "make")
+source=("ypsilon-820aa1b.tar.gz::https://codeload.github.com/fujita-y/ypsilon/tar.gz/820aa1b0258eb1854172c7909aef7462bb0e2adb"
+        "ypsilon-mingw.patch")
+sha256sums=('78d0f7df756b29c1fbe2eb3f7f27c5a4f0d5f23618b310653cc1d661ba9ac5dd'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/ypsilon-820aa1b0258eb1854172c7909aef7462bb0e2adb
+  patch -p1 -i ${srcdir}/ypsilon-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/ypsilon-820aa1b0258eb1854172c7909aef7462bb0e2adb
+  make PREFIX=${MINGW_PREFIX}
+}
+
+package() {
+  cd ${srcdir}/ypsilon-820aa1b0258eb1854172c7909aef7462bb0e2adb
+  make PREFIX=${MINGW_PREFIX} DESTDIR=${pkgdir} install
+}
