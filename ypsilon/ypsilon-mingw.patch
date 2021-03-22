@@ -1,21 +1,22 @@
 diff --git a/Makefile b/Makefile
-index eb54e43..0f006e0 100644
+index eb54e43..a6d2eed 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -265,6 +265,12 @@ ifneq (,$(findstring Darwin, $(UNAME)))
+@@ -265,6 +265,13 @@ ifneq (,$(findstring Darwin, $(UNAME)))
    endif
  endif
  
 +ifneq (,$(findstring MINGW, $(UNAME)))
 +  CXX = g++
 +  CXXFLAGS += -march=native -fno-omit-frame-pointer -m64
++  LDFLAGS += -static-libgcc -static-libstdc++
 +  LDLIBS = -lws2_32 -lShlwapi
 +endif
 +
  OBJS = $(patsubst %.cpp, %.o, $(filter %.cpp, $(SRCS))) $(patsubst %.s, %.o, $(filter %.s, $(SRCS)))
  DEPS = $(patsubst %.cpp, %.d, $(filter %.cpp, $(SRCS)))
  
-@@ -274,7 +280,7 @@ all: $(PROG) $(EXTS)
+@@ -274,7 +281,7 @@ all: $(PROG) $(EXTS)
  	@mkdir -p -m755 $(HOME)/.ypsilon
  
  $(PROG): $(OBJS)
