@@ -16,7 +16,7 @@ build() {
   cd ${srcdir}/zatuscheme-804ceac367c46ad8c85dfb891b6116b2f90ef4ac
   autoreconf --install
   automake
-  ./configure --prefix=/usr
+  LDFLAGS=-static ./configure --prefix=/usr
   mingw32-make
 }
 

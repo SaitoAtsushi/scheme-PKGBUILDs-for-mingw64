@@ -6,7 +6,7 @@ diff -u -r ksi-3.9.0.org/interp/Makefile.in ksi-3.9.0/interp/Makefile.in
  ksi_SOURCES = ksi.c
  ksi_LDADD = $(top_builddir)/si/libksi.la @KSI_LIBS@ @READLINE_LIB@
 -ksi_LDFLAGS = -export-dynamic
-+ksi_LDFLAGS = -shared
++ksi_LDFLAGS = -static
  initpkgdatadir = $(pkgdatadir)/$(KSI_MAJOR_VERSION).$(KSI_MINOR_VERSION).$(KSI_PATCH_LEVEL)
  initpkgdata_DATA = Boot.scm
  CLEANFILES = *~

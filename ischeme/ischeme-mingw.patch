@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index 745f478..f9fa5b8 100644
+index 745f478..41d9d4b 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,17 +1,17 @@
@@ -24,10 +24,12 @@ index 745f478..f9fa5b8 100644
  INSTALL_DIR = /usr/local
  INSTALL_LIB_DIR = $(INSTALL_DIR)/lib/ischeme
  CXXFLAGS += -DISC_LIB_DIR=\"$(INSTALL_LIB_DIR)\"
-@@ -26,6 +26,9 @@ $(TARGET): $(TARGET_SO)
+@@ -25,7 +25,10 @@ all: $(TARGET) $(TARGET_SO)
+ $(TARGET): $(TARGET_SO)
  	$(CXX) -o $@ main.cc $(CXXFLAGS) $(LDFLAGS) -L. -lischeme
  $(TARGET_SO): $(OBJ)
- 	$(CXX) -shared -o $@ $^ $(LDFLAGS)
+-	$(CXX) -shared -o $@ $^ $(LDFLAGS)
++	$(CXX) -shared -static -o $@ $^ $(LDFLAGS)
 +init.h: lib/init.isc
 +	echo "char init[]=\"" `sed -e 's/\\"/\\\\"/g' lib/init.isc |tr -d "\n"` "\";" >$@
 +ischeme.cc: init.h

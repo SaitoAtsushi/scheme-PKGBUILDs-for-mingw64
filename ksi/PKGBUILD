@@ -21,7 +21,7 @@ prepare() {
 
 build() {
   cd ${srcdir}/${_realname}-${pkgver}
-  ./configure --prefix=${MINGW_PREFIX} CPPFLAGS="-D__CRT__NO_INLINE -DWIN32" CFLAGS="-Wno-parentheses"
+  LDFLAGS="-Wl,--allow-multiple-definition -Wl,-static" ./configure --prefix=${MINGW_PREFIX} CPPFLAGS="-D__CRT__NO_INLINE -DWIN32" CFLAGS="-Wno-parentheses"
   make
 }
 

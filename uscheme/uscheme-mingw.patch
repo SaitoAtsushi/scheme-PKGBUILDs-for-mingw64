@@ -1,3 +1,16 @@
+diff --git a/Makefile b/Makefile
+index 2f73df3..ecfc02f 100644
+--- a/Makefile
++++ b/Makefile
+@@ -36,7 +36,7 @@ MACROS += NDEBUG
+ endif
+ 
+ ifeq ($(TYPE), release)
+-LDPARAM = -s
++LDPARAM = -s -static-libgcc -static-libstdc++ -static
+ CCPARAM = -Wall -O1
+ MACROS += NDEBUG
+ endif
 diff --git a/bignum.cpp b/bignum.cpp
 index ef0830e..b099467 100644
 --- a/bignum.cpp
@@ -21,7 +34,7 @@ index ef0830e..b099467 100644
      }
    }
 diff --git a/scheme.cpp b/scheme.cpp
-index 752368c..8c29565 100644
+index 752368c..b611a86 100644
 --- a/scheme.cpp
 +++ b/scheme.cpp
 @@ -34,6 +34,11 @@
@@ -53,7 +66,7 @@ index 752368c..8c29565 100644
 +    GetModuleFileNameA(0, module_filename, sizeof(module_filename));
 +    auto module_path = std::string(module_filename);
 +    auto pos = module_path.rfind("\\");
-+  	std::replace(std::begin(module_path), std::end(module_path), '\\', '/');
++    std::replace(std::begin(module_path), std::end(module_path), '\\', '/');
 +    retval = module_path.substr(0, pos-1) + "/../share/" + filename;
 +  }
 +#elif defined(PREFIX)
