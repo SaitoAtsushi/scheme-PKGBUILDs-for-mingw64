@@ -1,0 +1,513 @@
+diff -u scm.org/build.scm scm/build.scm
+--- scm.org/build.scm	2016-11-06 11:28:02.000000000 +0900
++++ scm/build.scm	2021-03-25 14:32:55.754856800 +0900
+@@ -400,7 +400,7 @@
+ #;Convert a running scheme program into an executable file.
+ (define-build-feature
+  'dump
+- '((define "CAN_DUMP") (c-lib dump) (c-lib nostart)))
++ '((c-lib dump) (c-lib nostart)))
+ 
+ ;;; Descriptions of these parameters is in "setjump.h".
+ ;;	(initial-heap-size ((define "INIT_HEAP_SIZE" (* 25000 sizeof-cell))))
+@@ -544,7 +544,7 @@
+      (suppress-files expression))
+ 
+     ((m *unknown* "" "-lm" "/usr/lib/libm.a" () ())
+-     (c *unknown* "" "-lc" "/usr/lib/libc.a" () ())
++     (c *unknown* "" "" "/usr/lib/libc.a" () ())
+      (regex *unknown* "" "-lregex" "/usr/lib/libregex.a" () ())
+      (curses *unknown* "" "-lcurses" "/usr/lib/libcurses.a" () ())
+      (graphics *unknown* "-I/usr/X11/include -DX11" "-lX11"
+@@ -1571,7 +1571,7 @@
+   (lambda (files parms)
+     (batch:try-chopped-command
+      parms
+-     "cc" "-c"
++     "gcc" "-c"
+      (include-spec "-I" parms)
+      (c-includes parms)
+      (c-flags parms)
+@@ -1582,7 +1582,7 @@
+     (batch:rename-file parms
+ 		       oname (string-append oname "~"))
+     (and (batch:try-command parms
+-			    "cc" "-o" oname
++			    "gcc" "-o" (string-append oname ".exe")
+ 			    (must-be-first
+ 			     '("-nostartfiles"
+ 			       "pre-crt0.o" "ecrt0.o"
+diff -u scm.org/continue.c scm/continue.c
+--- scm.org/continue.c	2008-01-31 12:31:43.000000000 +0900
++++ scm/continue.c	2021-03-25 13:58:40.777805700 +0900
+@@ -157,7 +157,7 @@
+ 
+ #ifndef __ia64__
+ void dynthrow(a)
+-     long *a;
++     intptr_t *a;
+ {
+   register CONTINUATION *cont = (CONTINUATION *)(a[0]);
+   long val = a[1];
+@@ -173,7 +173,7 @@
+   if (PTR_GE(dst + (cont->length), (STACKITEM *)&a)) grow_throw(a);
+ #  else
+ #   ifndef hpux
+-  if (a[2] && (((long *)a[3]) - a < SCM_GROWTH))
++  if (a[2] && (((intptr_t *)a[3]) - a < SCM_GROWTH))
+     puts("grow_throw: check if long growth[]; being optimized out");
+ #   endif
+   /* if (a[2]) fprintf(stderr, " ct = %ld, dist = %ld\n", a[2], (((long *)a[3]) - a)); */
+@@ -202,13 +202,13 @@
+ 
+ # ifndef CHEAP_CONTINUATIONS
+ void grow_throw(a)		/* Grow the stack so that there is room */
+-     long *a;			/* to copy in the continuation.  Then */
++     intptr_t *a;			/* to copy in the continuation.  Then */
+ {				/* retry the throw.  */
+-  long growth[SCM_GROWTH];
++  intptr_t growth[SCM_GROWTH];
+   growth[0] = a[0];
+   growth[1] = a[1];
+   growth[2] = a[2] + 1;
+-  growth[3] = (long) a;
++  growth[3] = (intptr_t) a;
+   growth[SCM_GROWTH-1] = sizeof growth;
+   dynthrow(growth);
+ }
+@@ -232,8 +232,8 @@
+      long val;
+      CONTINUATION *root_cont;
+ {
+-  long a[3];
+-  a[0] = (long)cont;
++  intptr_t a[3];
++  a[0] = (intptr_t)cont;
+   a[1] = val;
+   a[2] = 0;
+   if (cont->stkbse != root_cont->stkbse)
+diff -u scm.org/continue.h scm/continue.h
+--- scm.org/continue.h	2008-02-19 14:12:54.000000000 +0900
++++ scm/continue.h	2021-03-25 13:45:23.892858200 +0900
+@@ -145,8 +145,8 @@
+ CONTINUATION *make_root_continuation P((STACKITEM *stack_base));
+ CONTINUATION *make_continuation P((CONTINUATION *parent_cont));
+ void free_continuation P((CONTINUATION *cont));
+-void dynthrow P((long *a));
+-void grow_throw P((long *a));
++void dynthrow P((intptr_t *a));
++void grow_throw P((intptr_t *a));
+ void throw_to_continuation P((CONTINUATION *cont, long val,
+ 			      CONTINUATION *root_cont));
+ 
+diff -u scm.org/Makefile scm/Makefile
+--- scm.org/Makefile	2020-02-17 01:17:29.000000000 +0900
++++ scm/Makefile	2021-03-25 16:19:07.764082200 +0900
+@@ -27,11 +27,11 @@
+ INSTALL = install
+ INSTALL_PROGRAM = ${INSTALL}
+ INSTALL_DATA = ${INSTALL} -m 644
+-INSTALL_INFO = ginstall-info
++INSTALL_INFO = install-info
+ 
+-SCMLIT = ./scmlit
+-SCMEXE = ./scm
+-BUILD = ./build -hsystem
++SCMLIT = ./scmlit.exe
++SCMEXE = ./scm.exe
++BUILD = ./build -hsystem -p ms-dos
+ 
+ TEXI2HTML = /usr/local/bin/texi2html -split -verbose
+ TEXI2PDF = texi2pdf
+@@ -43,11 +43,11 @@
+ SCMOPTS = udscm[45].opt scm[45].opt
+ 
+ # OS-X 10.6, but harmless for other OS.
+-SETARCH = env DYLD_NO_PIE=1
++# SETARCH = env DYLD_NO_PIE=1
+ # Fedora-Core-1
+ #SETARCH = setarch i386
+ 
+-#CC = gcc
++CC = gcc
+ #CFLAGS = -g
+ #LIBS =
+ #LD = $(CC) -g
+@@ -422,41 +422,41 @@
+ 	-rm $(ofiles) scmmain.o
+ 	strip udscm4
+ dscm4:	udscm4 $(ifiles) require.scm
+-	if [ -f /proc/sys/kernel/randomize_va_space -a\
+-	     "`cat /proc/sys/kernel/randomize_va_space`" != "0" ]; then {\
+-	   cat /proc/sys/kernel/randomize_va_space > randomize_va_space.tmp;\
+-	   echo 0 > /proc/sys/kernel/randomize_va_space;\
+-	} fi
++#	if [ -f /proc/sys/kernel/randomize_va_space -a\
++#	     "`cat /proc/sys/kernel/randomize_va_space`" != "0" ]; then {\
++#	   cat /proc/sys/kernel/randomize_va_space > randomize_va_space.tmp;\
++#	   echo 0 > /proc/sys/kernel/randomize_va_space;\
++#	} fi
+ 	-rm -f slibcat implcat scm~
+ 	-mv scm scm~
+ 	echo "(quit)" | $(SETARCH) ./udscm4 -no-init-file -o scm
+-	if [ -f randomize_va_space.tmp ]; then {\
+-	   cat randomize_va_space.tmp > /proc/sys/kernel/randomize_va_space;\
+-	   rm randomize_va_space.tmp;\
+-	} fi
++#	if [ -f randomize_va_space.tmp ]; then {\
++#	   cat randomize_va_space.tmp > /proc/sys/kernel/randomize_va_space;\
++#	   rm randomize_va_space.tmp;\
++#	} fi
+ 
+ # dumpable R5RS interpreter
+ udscm5.opt:
+ 	$(MAKE) scm5.opt
+ 	cat scm5.opt > udscm5.opt
+ 	echo "-F dump" >> udscm5.opt
+-udscm5:	$(cfiles) $(ufiles) $(hfiles) build.scm build udscm5.opt
+-	$(BUILD) -f udscm5.opt -o udscm5 -s $(IMPLPATH)
++udscm5.exe:	$(cfiles) $(ufiles) $(hfiles) build.scm build udscm5.opt
++	$(BUILD) -f udscm5.opt -o udscm5.exe -s $(IMPLPATH)
+ 	-rm $(ofiles) scmmain.o
+-	strip udscm5
+-dscm5:	udscm5 $(ifiles) require.scm
+-	if [ -f /proc/sys/kernel/randomize_va_space -a\
+-	     "`cat /proc/sys/kernel/randomize_va_space`" != "0" ]; then {\
+-	   cat /proc/sys/kernel/randomize_va_space > randomize_va_space.tmp;\
+-	   echo 0 > /proc/sys/kernel/randomize_va_space;\
+-	} fi
++	strip udscm5.exe
++dscm5:	udscm5.exe $(ifiles) require.scm
++#	if [ -f /proc/sys/kernel/randomize_va_space -a\
++#	     "`cat /proc/sys/kernel/randomize_va_space`" != "0" ]; then {\
++#	   cat /proc/sys/kernel/randomize_va_space > randomize_va_space.tmp;\
++#	   echo 0 > /proc/sys/kernel/randomize_va_space;\
++#	} fi
+ 	-rm -f slibcat implcat scm~
+ 	-mv scm scm~
+-	echo "(quit)" | $(SETARCH) ./udscm5 -no-init-file -r5 -o scm
+-	if [ -f randomize_va_space.tmp ]; then {\
+-	   cat randomize_va_space.tmp > /proc/sys/kernel/randomize_va_space;\
+-	   rm randomize_va_space.tmp;\
+-	} fi
++	echo "(quit)" | $(SETARCH) ./udscm5.exe -no-init-file -r5 -o scm
++#	if [ -f randomize_va_space.tmp ]; then {\
++#	   cat randomize_va_space.tmp > /proc/sys/kernel/randomize_va_space;\
++#	   rm randomize_va_space.tmp;\
++#	} fi
+ 	$(MAKE) checkmacro
+ 
+ # R5RS interpreter for debugging with GDB.
+@@ -623,11 +623,12 @@
+ 	-strip $(DESTDIR)$(bindir)scmlit
+ 	$(INSTALL_DATA) scm.h scmfig.h scmflags.h $(DESTDIR)$(includedir)
+ 
++.PHONY: install
+ install: install-man install-lib install-infoz installdirs
+-	$(INSTALL_PROGRAM) scm scmlit $(DESTDIR)$(bindir)
+-	-strip $(DESTDIR)$(bindir)scmlit
++	$(INSTALL_PROGRAM) scm.exe scmlit.exe $(DESTDIR)$(bindir)
++	-strip $(DESTDIR)$(bindir)scmlit.exe
+ 	$(INSTALL_DATA) scm.h scmfig.h scmflags.h $(DESTDIR)$(includedir)
+-	$(DESTDIR)$(bindir)scm -br new-catalog
++
+ 
+ uninstall:
+ 	$(PRE_UNINSTALL)     # Pre-uninstall commands follow.
+@@ -657,7 +658,7 @@
+ 	echo "-F bignums inexact engineering-notation" >> winscm5.opt
+ 	echo "-F cautious rev2-procedures macro" >> winscm5.opt
+ 	echo "-F wb-no-threads" >> winscm5.opt
+-gw32scmwb.sh:	scmlit winscm5.opt build.scm Makefile version.txi
++gw32scmwb.sh:	scmlit.exe winscm5.opt build.scm Makefile version.txi
+ 	./build -p gnu-win32 -f winscm5.opt -w gw32scmwb.sh
+ scm.exe:	gw32scmwb.sh
+ 	./gw32scmwb.sh
+diff -u scm.org/repl.c scm/repl.c
+--- scm.org/repl.c	2017-10-15 05:07:19.000000000 +0900
++++ scm/repl.c	2021-03-25 01:58:42.463682300 +0900
+@@ -359,7 +359,7 @@
+       lputs("#<continuation ", port);
+       scm_intprint(LENGTH(exp), -10, port);
+       lputs(" @ ", port);
+-      scm_intprint((long)CHARS(exp), -16, port);
++      scm_intprint((intptr_t)CHARS(exp), -16, port);
+       lputc('>', port);
+       break;
+     case tc7_port:
+@@ -1262,7 +1262,7 @@
+ static void def_err_response P((void));
+ 
+ int handle_it(i)
+-     int i;
++     intptr_t i;
+ {
+   SCM proc;
+   char *name = errmsgs[i-WNA].s_response;
+@@ -2071,14 +2071,14 @@
+     lputc((short)err_pos <= ARGn ? ' ' : '1' + (short)err_pos - ARG1, cur_errp);
+   }
+ #else
+-  if ((~0x1fL) & (long)err_pos) lputs(err_pos, cur_errp);
+-  else if (WNA > (long)err_pos) {
++  if ((~0x1fL) & (intptr_t)err_pos) lputs(err_pos, cur_errp);
++  else if (WNA > (intptr_t)err_pos) {
+     lputs("Wrong type in arg", cur_errp);
+-    lputc((long)err_pos <= ARGn ? ' ' : '1' + (int)err_pos - ARG1, cur_errp);
++    lputc((intptr_t)err_pos <= ARGn ? ' ' : '1' + (intptr_t)err_pos - ARG1, cur_errp);
+   }
+ #endif
+-  else lputs(errmsgs[((int)err_pos)-WNA].msg, cur_errp);
+-  lputs(((long)err_pos==WNA)?" given ":" ", cur_errp);
++  else lputs(errmsgs[((intptr_t)err_pos)-WNA].msg, cur_errp);
++  lputs(((intptr_t)err_pos==WNA)?" given ":" ", cur_errp);
+   err_pos = 0;
+   if (!UNBNDP(obj))
+     if (reset_safeport(sys_safep, 55, cur_errp))
+@@ -2135,8 +2135,8 @@
+   errobj_codep = codep;
+   if (errjmp_bad || errjmp_recursive) def_err_response();
+   longjump(CONT(rootcont)->jmpbuf,
+-	   (~0x1fL) & (long)pos || (WNA > (long)pos) ?
+-	   COOKIE(1) : COOKIE((int)pos));
++	   (~0x1fL) & (intptr_t)pos || (WNA > (intptr_t)pos) ?
++	   COOKIE(1) : COOKIE((intptr_t)pos));
+   /* will do error processing at stack base */
+ }
+ void wta(arg, pos, s_subr)
+diff -u scm.org/scm.c scm/scm.c
+--- scm.org/scm.c	2014-11-19 07:04:42.000000000 +0900
++++ scm/scm.c	2021-03-25 01:47:39.560221300 +0900
+@@ -28,6 +28,7 @@
+ 
+ #ifdef _WIN32
+ # include <io.h>
++# include <stdint.h>
+ #endif
+ 
+ #ifdef __IBMC__
+@@ -161,7 +162,7 @@
+ 
+ void process_signals()
+ {
+-  int i, n;
++  intptr_t i, n;
+   unsigned long mask = 1L;
+   /* printf("process_signals; output_deferred=%d\n", output_deferred); fflush(stdout); */
+   if (output_deferred) {
+@@ -189,7 +190,7 @@
+ SCM_EXPORT HANDLE scm_hMainThread;
+ HANDLE scm_hMainThread;
+ static SIGRETTYPE scmable_signal(int sig);
+-# ifdef __MINGW32__
++# if defined(__MINGW32__) && defined(__i386__ )
+ static void sigintstub();
+ __asm(".globl _sigintstub");
+ __asm("_sigintstub:");
+@@ -199,6 +200,11 @@
+ __asm("        popal");
+ __asm("        popfl");
+ __asm("        ret");
++# elif defined(__MINGW32__) && defined(__x86_64__)
++static void sigintstub()
++{
++	scmable_signal(SIGINT);
++}
+ # else   /* works for Microsoft VC++ */
+ static __declspec(naked) void sigintstub()
+ {
+@@ -225,6 +231,23 @@
+ 		return;
+ 	}
+ 
++#if defined(__MINGW32__) && defined(__x86_64__)
++	Stack = (DWORD *)ctx.Rsp;
++
++	*--Stack = ctx.Rip;
++	*--Stack = ctx.EFlags;
++	*--Stack = ctx.Rax;
++	*--Stack = ctx.Rcx;
++	*--Stack = ctx.Rdx;
++	*--Stack = ctx.Rbx;
++	*--Stack = ctx.Rsp;
++	*--Stack = ctx.Rbp;
++	*--Stack = ctx.Rsi;
++	*--Stack = ctx.Rdi;
++	ctx.Rsp = (uint64_t)Stack;
++
++	ctx.Rip = (uint64_t)sigintstub;
++#else
+ 	Stack = (DWORD *)ctx.Esp;
+ 
+ 	*--Stack = ctx.Eip;
+@@ -240,6 +263,7 @@
+ 	ctx.Esp = (DWORD)Stack;
+ 
+ 	ctx.Eip = (DWORD)sigintstub;
++#endif
+ 
+ 	SetThreadContext(scm_hMainThread, &ctx);
+ 	ResumeThread(scm_hMainThread);
+@@ -252,7 +276,7 @@
+ static SIGRETTYPE err_signal(sig)
+      int sig;
+ {
+-  int i = NUM_SIGNALS;
++  intptr_t i = NUM_SIGNALS;
+   signal(sig, err_signal);
+   while (i--)
+     if (sig == sigdesc[i].signo) break;
+@@ -263,7 +287,7 @@
+      int sig;
+ {
+   int oerr = errno;
+-  int i = NUM_SIGNALS;
++  intptr_t i = NUM_SIGNALS;
+   while (i--)
+     if (sig == sigdesc[i].signo) break;
+   ASRTER(i >= 0, MAKINUM(sig), s_unksig, "");
+@@ -545,7 +569,7 @@
+ {
+ #ifdef WINSIGNALS
+     /* Added to allow gcc -O2 to work. */
+-  volatile unsigned long dont_optimize_me = (unsigned long)scmable_signal;
++  volatile uintptr_t dont_optimize_me = (uintptr_t)scmable_signal;
+   init_sig1(INT_SIGNAL, SIGINT, win32_sigint);
+ #else
+ # ifdef SIGINT
+diff -u scm.org/scm.h scm/scm.h
+--- scm.org/scm.h	2017-10-22 11:21:58.000000000 +0900
++++ scm/scm.h	2021-03-25 13:06:12.407857000 +0900
+@@ -44,7 +44,7 @@
+ int isatty (int);
+ #endif
+ 
+-typedef long SCM;
++typedef intptr_t SCM;
+ typedef struct {SCM car, cdr;} cell;
+ typedef struct {long sname;SCM (*cproc)();} subr;
+ typedef struct {long sname;double (*dproc)();} dsubr;
+@@ -689,7 +689,7 @@
+ 
+ SCM_EXPORT void (* deferred_proc) P((void));
+ SCM_EXPORT void process_signals P((void));
+-SCM_EXPORT int  handle_it P((int i));
++SCM_EXPORT int  handle_it P((intptr_t i));
+ SCM_EXPORT SCM  must_malloc_cell P((long len, SCM c, const char *what));
+ SCM_EXPORT void must_realloc_cell P((SCM z, unsigned long olen, unsigned long len, const char *what));
+ SCM_EXPORT char *must_malloc P((long len, const char *what));
+@@ -1113,12 +1113,21 @@
+ # define ASRTGO(_cond, _label) if (SCM_EXPECT_FALSE(!(_cond))) goto _label;
+ #endif
+ 
++#if defined(__x86_64) && defined(__MINGW32__)
++#define ARGn            1LL
++#define ARG1            2LL
++#define ARG2            3LL
++#define ARG3            4LL
++#define ARG4            5LL
++#define ARG5            6LL
++#else
+ #define ARGn            1L
+ #define ARG1            2L
+ #define ARG2            3L
+ #define ARG3            4L
+ #define ARG4            5L
+ #define ARG5            6L
++#endif
+   /* following must match entry indexes in errmsgs[] */
+ #define WNA             7L
+ #define OVFLOW          8L
+diff -u scm.org/scmfig.h scm/scmfig.h
+--- scm.org/scmfig.h	2015-07-16 10:47:43.000000000 +0900
++++ scm/scmfig.h	2021-03-25 12:53:48.363856600 +0900
+@@ -265,8 +265,10 @@
+ # define CDR_DOUBLES
+ #endif
+ #ifdef __x86_64
+-# define SHORT_INT
+-# define CDR_DOUBLES
++# ifndef __MINGW32__
++#  define SHORT_INT
++#  define CDR_DOUBLES
++# endif
+ #endif
+ #ifdef MSDOS			/* Microsoft C 5.10 and 6.00A */
+ # ifndef GO32
+@@ -401,7 +403,7 @@
+ # define PTR2INT(x) ((long)(x))
+ #else
+ # ifdef __x86_64
+-#  define PTR2INT(x) ((long)(x))
++#  define PTR2INT(x) ((intptr_t)(x))
+ # else
+ #  define PTR2INT(x) ((int)(x))
+ # endif
+diff -u scm.org/scmmain.c scm/scmmain.c
+--- scm.org/scmmain.c	2013-04-07 10:52:41.000000000 +0900
++++ scm/scmmain.c	2021-03-25 13:04:16.433795500 +0900
+@@ -85,8 +85,9 @@
+      int argc;
+      const char **argv;
+ {
+-  char *script_arg = 0;		/* location of SCSH style script file or 0. */
+-  char *implpath = 0, **nargv;
++  const char *script_arg = 0;		/* location of SCSH style script file or 0. */
++  char *implpath = 0;
++  const char **nargv;
+   int nargc, iverbose = 0, buf0stdin;
+   SCM retval;
+ /* added by Dai Inukai 2001-03-21 */
+diff -u scm.org/setjump.h scm/setjump.h
+--- scm.org/setjump.h	2017-10-15 04:55:44.000000000 +0900
++++ scm/setjump.h	2021-03-25 02:04:17.088680800 +0900
+@@ -30,8 +30,8 @@
+ #  define CELL_UP(p) (CELLPTR)(~1L & ((long)(p)+1L))
+ #  define CELL_DN(p) (CELLPTR)(~1L & (long)(p))
+ # else
+-#  define CELL_UP(p) (CELLPTR)(~(sizeof(cell)-1L) & ((long)(p)+sizeof(cell)-1L))
+-#  define CELL_DN(p) (CELLPTR)(~(sizeof(cell)-1L) & (long)(p))
++#  define CELL_UP(p) (CELLPTR)(~(sizeof(cell)-1L) & ((intptr_t)(p)+sizeof(cell)-1L))
++#  define CELL_DN(p) (CELLPTR)(~(sizeof(cell)-1L) & (intptr_t)(p))
+ # endif				/* UNICOS */
+ #endif				/* PROT386 */
+ 
+diff -u scm.org/subr.c scm/subr.c
+--- scm.org/subr.c	2017-10-22 11:10:12.000000000 +0900
++++ scm/subr.c	2021-03-25 13:54:37.745795700 +0900
+@@ -411,7 +411,7 @@
+   register long z;
+ #ifdef BIGDIG
+   if (NINUMP(x)) {
+-    long w;
++    intptr_t w;
+     ASRTER(NIMP(x) && BIGP(x), x, ARG1, s_quotient);
+     if (NINUMP(y)) {
+       ASRTGO(NIMP(y) && BIGP(y), bady);
+diff -u scm.org/sys.c scm/sys.c
+--- scm.org/sys.c	2017-10-23 08:48:07.000000000 +0900
++++ scm/sys.c	2021-03-25 02:08:08.318665100 +0900
+@@ -1592,9 +1592,9 @@
+ {
+   STACKITEM stack;
+   lputs(";; stack: 0x", cur_errp);
+-  scm_intprint((long)CONT(rootcont)->stkbse, -16, cur_errp);
++  scm_intprint((intptr_t)CONT(rootcont)->stkbse, -16, cur_errp);
+   lputs(" - 0x", cur_errp);
+-  scm_intprint((long)&stack, -16, cur_errp);
++  scm_intprint((intptr_t)&stack, -16, cur_errp);
+   lputs("; ", cur_errp);
+   scm_intprint(stack_size(CONT(rootcont)->stkbse)*sizeof(STACKITEM), 10, cur_errp);
+   lputs(" bytes\n", cur_errp);
+@@ -1812,9 +1812,9 @@
+     {
+       long seg_cells = CELL_DN(hplims[i+1]) - CELL_UP(hplims[i]);
+       lputs("\n; 0x", sys_errp);
+-      scm_intprint((long)hplims[i++], -16, sys_errp);
++      scm_intprint((intptr_t)hplims[i++], -16, sys_errp);
+       lputs(" - 0x", sys_errp);
+-      scm_intprint((long)hplims[i++], -16, sys_errp);
++      scm_intprint((intptr_t)hplims[i++], -16, sys_errp);
+       lputs("; ", sys_errp);
+       scm_intprint(seg_cells, 10, sys_errp);
+       lputs(" cells; ", sys_errp);

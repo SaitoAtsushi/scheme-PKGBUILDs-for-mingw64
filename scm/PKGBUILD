@@ -1,0 +1,52 @@
+_realname=scm
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=5f3
+pkgrel=1
+pkgdesc="A Scheme implementation conforming to R5RS and the IEEE P1178 specification."
+arch=('any')
+url="http://people.csail.mit.edu/jaffer/SCM"
+license=('LGPL')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "make")
+source=("http://groups.csail.mit.edu/mac/ftpdir/scm/scm-5f3.zip"
+        "http://groups.csail.mit.edu/mac/ftpdir/scm/slib-3b6.zip"
+        "http://groups.csail.mit.edu/mac/ftpdir/scm/wb-2b4.zip"
+        "scm-mingw.patch")
+noextract=("scm-5f3.zip" "slib-3b6.zip" "wb-2b4.zip")
+sha256sums=('27c944b871c319a820e0fb1698bccb27d929db197f9e44d9ad4650f52aa4bdcb'
+            '2e8cb4843b5400b2e39fe9ddcc8040a412f9a19cccf5e7e2c2e071ceb9b0ed8c'
+            'f04f91dc81eabde24f36a06fb393fb91aa8c8077c88853dcaf892d9950b95bf5'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}
+  unzip scm-5f3.zip
+  unzip slib-3b6.zip
+  unzip wb-2b4.zip
+  cd scm
+  patch -p1 -i ${srcdir}/scm-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/slib
+  ./configure --prefix=${MINGW_PREFIX}
+  lang=C make infoz
+  cd ${srcdir}/scm
+  ./configure  --prefix=${MINGW_PREFIX}
+  lang=C make scmlit
+  lang=C make scm.exe
+}
+
+package() {
+  cd ${srcdir}/scm
+  lang=C make install DESTDIR=${pkgdir}
+  cd ${srcdir}/slib
+  install -d "${pkgdir}${MINGW_PREFIX}/bin"
+  install -d "${pkgdir}${MINGW_PREFIX}/lib/scm/slib"
+  install -m644 *.scm scm.init *.xyz *.txt *.dat *.ps "${pkgdir}${MINGW_PREFIX}/lib/scm/slib/"
+  install -Dm755 slib.sh "${pkgdir}${MINGW_PREFIX}/bin/slib"
+  install -Dm644 slib.info "${pkgdir}${MINGW_PREFIX}/share/info/slib.info"
+  install -Dm644 slib.1 "${pkgdir}${MINGW_PREFIX}/share/man/man1/slib.1"
+  sed -i s#"slib"#"scm/slib"#g "${pkgdir}${MINGW_PREFIX}/lib/scm/require.scm"
+}
