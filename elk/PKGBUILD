@@ -1,0 +1,33 @@
+_realname=elk
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=3.99.8
+pkgrel=1
+pkgdesc="An implementation of the Scheme programming language."
+arch=('any')
+url="http://sam.zoy.org/elk/"
+license=('custom')
+depends=("${MINGW_PACKAGE_PREFIX}-gdbm")
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "make")
+source=("http://sam.zoy.org/elk/elk-3.99.8.tar.gz"
+        "elk-mingw.patch")
+sha256sums=('1db2b6b92a693b056c597aaf5cddc617a640bd6b24a218a725286d7490117cf9'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  patch -p1 -i ${srcdir}/elk-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  MSYS2_ARG_CONV_EXCL="--prefix" ./configure --without-x --prefix=${MINGW_PREFIX} CFLAGS="-DWIN32"
+  (cd src && make libelk.la);
+  make
+}
+
+package() {
+  cd ${srcdir}/${_realname}-${pkgver}
+  make install DESTDIR=${pkgdir}
+  install -D COPYING ${pkgdir}${MINGW_PREFIX}/share/licenses/elk/LICENSE
+}

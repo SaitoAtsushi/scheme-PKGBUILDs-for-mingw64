@@ -1,0 +1,33 @@
+diff -r -u elk-3.99.8.org/lib/unix/file.c elk-3.99.8/lib/unix/file.c
+--- elk-3.99.8.org/lib/unix/file.c	2011-06-18 19:24:06.000000000 +0900
++++ elk-3.99.8/lib/unix/file.c	2021-03-27 01:47:37.403409800 +0900
+@@ -48,7 +48,7 @@
+ #  include <sys/dir.h>
+ #endif
+ 
+-#if defined(ELOOP)
++#if defined(ELOOP) && !defined(__MINGW32__)
+ #  define SYMLINKS
+ #endif
+ 
+diff -r -u elk-3.99.8.org/src/libelk.c elk-3.99.8/src/libelk.c
+--- elk-3.99.8.org/src/libelk.c	2011-06-18 19:24:06.000000000 +0900
++++ elk-3.99.8/src/libelk.c	2021-03-26 18:40:09.515371800 +0900
+@@ -197,9 +197,17 @@
+         if (exe > path && exe[-1] == '\\') {
+             char newpath[MAX_PATH+5];
+             exe[-1] = '\0';
++#ifdef __MINGW32__
++            sprintf (newpath, "%s\\..\\lib\\elk", path);
++#else
+             sprintf (newpath, "%s\\lib", path);
++#endif
+             Lib_Dir = strdup (newpath);
++#ifdef __MINGW32__
++            sprintf (newpath, "%s\\..\\share\\elk", path);
++#else
+             sprintf (newpath, "%s\\scm", path);
++#endif
+             Scm_Dir = strdup (newpath);
+         }
+     }
