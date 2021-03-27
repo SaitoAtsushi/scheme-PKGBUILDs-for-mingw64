@@ -1,0 +1,27 @@
+pkgbase=chicken
+pkgname=("${MINGW_PACKAGE_PREFIX}-chicken")
+pkgver=5.2.0
+pkgrel=1
+pkgdesc="A compiler for the Scheme programming language."
+arch=('any')
+url="https://www.call-cc.org/"
+license=('BSD')
+depends=("${MINGW_PACKAGE_PREFIX}-gcc-libs")
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "make")
+options=('staticlibs')
+source=("https://code.call-cc.org/releases/5.2.0/chicken-5.2.0.tar.gz")
+sha256sums=('819149c8ce7303a9b381d3fdc1d5765c5f9ac4dee6f627d1652f47966a8780fa')
+
+prepare() {
+  cd ${srcdir}/${pkgbase}-${pkgver}
+}
+
+build() {
+  cd ${srcdir}/${pkgbase}-${pkgver}
+  make -j1 -f Makefile.mingw-msys PREFIX=${MINGW_PREFIX}
+}
+
+package() {
+  cd ${srcdir}/${pkgbase}-${pkgver}
+  make -f Makefile.mingw-msys PREFIX=${MINGW_PREFIX} DESTDIR=${pkgdir} install
+}
