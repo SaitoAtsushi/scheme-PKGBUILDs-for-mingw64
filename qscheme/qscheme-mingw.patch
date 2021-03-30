@@ -1,0 +1,871 @@
+diff -u -r -N qscheme-0.5.1.org/chr.c qscheme-0.5.1/chr.c
+--- qscheme-0.5.1.org/chr.c	2000-05-27 07:17:28.000000000 +0900
++++ qscheme-0.5.1/chr.c	2021-03-29 02:06:50.924088400 +0900
+@@ -15,11 +15,6 @@
+ 
+ #define BSLASH	'\134'
+ 
+-struct CHR_SYM {
+-  char *str;
+-  char chr;
+-};
+-
+ struct CHR_SYM csym[] = {
+   { "null", 		0 },
+   { "bell",			'\a' }, 
+diff -u -r -N qscheme-0.5.1.org/config.h qscheme-0.5.1/config.h
+--- qscheme-0.5.1.org/config.h	1970-01-01 09:00:00.000000000 +0900
++++ qscheme-0.5.1/config.h	2021-03-30 02:06:59.022412200 +0900
+@@ -0,0 +1,18 @@
++#define HAVE_ALLOCA 1
++#define STDC_HEADERS 1
++#define HAVE_STRDUP 1
++#define HAVE_STRERROR 1
++#define HAVE_STRSTR 1
++#define HAVE_STRTOL 1
++#define HAVE_FCNTL_H 1
++#define HAVE_LIMITS_H 1
++#define HAVE_UNISTD_H 1
++#define HAVE_LIBDL 1
++#define HAVE_LIBM 1
++#define PACKAGE "qscheme"
++#define VERSION "0.5.1"
++#define STACK_GROWS_DOWN 1
++#define HAVE_CGOTO 1
++#define HAVE_FUNC_STR 1
++#define _REENTRANT 1
++#define _GNU_SOURCE 1
+diff -u -r -N qscheme-0.5.1.org/file.c qscheme-0.5.1/file.c
+--- qscheme-0.5.1.org/file.c	2000-06-03 09:50:12.000000000 +0900
++++ qscheme-0.5.1/file.c	2021-03-29 04:12:03.506752100 +0900
+@@ -11,7 +11,7 @@
+ SOBJ scm_file_new(FILE *fp)
+ {
+   SOBJ new = scm_newcell(SOBJ_T_FILE);
+-  SCM_FILE(new) = fp;
++  SCM_AUX(new) = (FILE *) fp;
+   return(new);
+ }
+ 
+@@ -77,7 +77,7 @@
+   int r;
+   if (!SCM_FILEP(x))		SCM_ERR("bad file", x);
+   r = fclose(SCM_FILE(x));
+-  SCM_FILE(x) = NULL;
++  SCM_AUX(x) = (FILE*)NULL;
+   return(SCM_MKINUM(r));
+ }
+ 
+@@ -107,7 +107,7 @@
+ {
+   int r;
+   char *buf = NULL;
+-  int  len = 0;
++  ssize_t  len = 0;
+ 
+   if (!SCM_STRINGP(str))	SCM_ERR("bad string", 	str);
+   if (!SCM_FILEP(file))		SCM_ERR("bad file",		file);
+diff -u -r -N qscheme-0.5.1.org/hash.c qscheme-0.5.1/hash.c
+--- qscheme-0.5.1.org/hash.c	2000-05-27 07:17:28.000000000 +0900
++++ qscheme-0.5.1/hash.c	2021-03-29 02:45:09.267456400 +0900
+@@ -91,7 +91,7 @@
+   case SCM_HASH_T_GEN:		port_puts(p, "#{");   				break;
+   case SCM_HASH_T_SYMBOL:	port_puts(p, "#{<symbol-hash> ");  	break;
+   case SCM_HASH_T_ATOM:		port_puts(p, "#{<atom-hash> "); 	break;
+-  default:					port_puts(p, "#{<???> ");
++  default:					port_puts(p, "#{<\?\?\?> ");
+   }
+   
+   for (i = 0; i < h->hsize; i++) {
+@@ -144,7 +144,7 @@
+ 
+ Uint scm_hash_pointer(void *ptr)
+ {
+-  long n = (long) ptr;
++  intptr_t n = (intptr_t) ptr;
+   return( (n>>1) * 1103515245 );
+ }
+ 
+diff -u -r -N qscheme-0.5.1.org/heap.c qscheme-0.5.1/heap.c
+--- qscheme-0.5.1.org/heap.c	2000-06-03 08:32:24.000000000 +0900
++++ qscheme-0.5.1/heap.c	2021-03-29 16:43:52.078490300 +0900
+@@ -137,7 +137,7 @@
+   hb->mblock = scm_must_alloc((size * sizeof(Sobject)) + 2);
+ 
+   hb->size = size;
+-  hb->base  = hb->mblock + ((long)hb->mblock & 1);
++  hb->base  = hb->mblock + ((intptr_t)hb->mblock & 1);
+   hb->limit = hb->base + size;
+   hb->ptr   = hb->base;
+   hb->next  = scm_heap_list;
+@@ -180,7 +180,7 @@
+ {
+   SCM_HEAP_BLOCK *h;
+ 
+-  if ( (long)p & 1)				/* ignore odd pointers */
++  if ( (intptr_t)p & 1)				/* ignore odd pointers */
+ 	return(FALSE);
+ 
+   for (h = scm_heap_list; h; h = h->next) {
+diff -u -r -N qscheme-0.5.1.org/Makefile.mingw qscheme-0.5.1/Makefile.mingw
+--- qscheme-0.5.1.org/Makefile.mingw	1970-01-01 09:00:00.000000000 +0900
++++ qscheme-0.5.1/Makefile.mingw	2021-03-30 17:17:55.174948900 +0900
+@@ -0,0 +1,106 @@
++
++CC = gcc
++VERSION = 0.5.1
++PREFIX = /usr/local
++DESTDIR =
++CFLAGS = -DHAVE_CONFIG_H -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-discarded-qualifiers
++
++libqs_src = array.c asm.c atom.c boolean.c catch.c chr.c code.c cont.c \
++	dyn.c  env.c hash.c heap.c list.c lsym.c macro.c misc.c module.c \
++	number.c pointer.c port.c proc.c s.c str.c sym.c variable.c vm2.c \
++	format.c file.c
++
++libqs_obj = array.o asm.o atom.o boolean.o catch.o chr.o code.o cont.o \
++	dyn.o  env.o hash.o heap.o list.o lsym.o macro.o misc.o module.o \
++	number.o pointer.o port.o proc.o s.o str.o sym.o variable.o vm2.o \
++	format.o file.o
++
++vmfiles = prim2.i number.i prim2.x number.x
++
++modobj = regex.dll object.dll struct.dll socket.dll
++modsrc = regex.c object.c struct.c socket.c object.h struct.h
++scmsrc = s.scm macro.scm loop.scm wloop.scm fib.scm cat.scm
++
++shared_dir=$(prefix)/share/qscheme/$(VERSION)
++
++.PHONY: all clean install
++
++all: qscheme.exe libqs.dll regex.dll object.dll struct.dll socket.dll
++
++qscheme.exe: smain.o libqs.dll
++	gcc $(CLAGS) -o $@ $^
++
++libqs.dll: $(libqs_obj)
++	$(CC) $(LDFLAGS) -o $@ -shared $^ -static -lgmp -lavcall -ldl -lshlwapi
++
++regex.dll: regex.o libqs.dll
++	$(CC) -o $@ -shared $^ -lpcre
++
++object.dll: object.o libqs.dll
++	$(CC) -o $@ -shared $^
++
++socket.dll: socket.o libqs.dll
++	$(CC) -o $@ -shared $^ -lws2_32
++
++struct.dll: struct.o libqs.dll
++	$(CC) -o $@ -shared $^
++
++regex.o   : regex.c s.h port.h sproto.h
++object.o  : object.c s.h port.h sproto.h vm2.h stack.h object.h
++struct.o  : struct.c s.h port.h sproto.h struct.h
++socket.o  : socket.c s.h port.h sproto.h
++
++smain.o   : smain.c s.h port.h sproto.h
++array.o   : array.c s.h port.h sproto.h heap.h
++asm.o     : asm.c s.h port.h sproto.h vm2.h stack.h asm.h
++atom.o    : atom.c s.h port.h sproto.h
++boolean.o : boolean.c s.h port.h sproto.h
++catch.o   : catch.c s.h port.h sproto.h vm2.h heap.h stack.h
++chr.o     : chr.c s.h port.h sproto.h
++code.o    : code.c s.h port.h sproto.h heap.h
++cont.o    : cont.c s.h port.h sproto.h cont.h
++dyn.o     : dyn.c s.h port.h sproto.h
++env.o     : env.c s.h port.h sproto.h
++hash.o    : hash.c s.h port.h sproto.h
++heap.o    : heap.c s.h port.h sproto.h
++list.o    : list.c s.h port.h sproto.h vm2.h stack.h
++lsym.o    : lsym.c s.h port.h sproto.h
++macro.o   : macro.c s.h port.h sproto.h
++misc.o    : misc.c s.h port.h sproto.h
++module.o  : module.c s.h port.h sproto.h vm2.h stack.h
++number.o  : number.c s.h port.h sproto.h
++pointer.o : pointer.c s.h port.h sproto.h
++port.o    : port.c s.h port.h sproto.h vm2.h heap.h
++proc.o    : proc.c s.h port.h sproto.h proc.h heap.h
++s.o       : s.c s.h port.h sproto.h vm2.h heap.h proc.h stack.h
++str.o     : str.c s.h port.h sproto.h heap.h
++sym.o     : sym.c s.h port.h sproto.h
++variable.o: variable.c s.h port.h sproto.h
++vm2.o     : vm2.c s.h port.h sproto.h heap.h vm2.h prim2.x number.x prim2.i number.i
++format.o  : format.c s.h port.h sproto.h
++file.o    : file.c s.h port.h sproto.h
++
++# force sproto.h to be up to date. Otherwise compilation of
++# distribution may fail, because sproto.h can trigger the cfunction
++# program which is not included in distribution.
++
++clean:
++	rm -rf *.o *.a *.dll *.exe
++
++install:
++	install -D -s qscheme.exe     $(DESTDIR)$(PREFIX)/bin/qscheme.exe
++	install -D -s libqs.dll       $(DESTDIR)$(PREFIX)/bin/libqs.dll
++	install -D -s regex.dll       $(DESTDIR)$(PREFIX)/share/qscheme/regex.dll
++	install -D -s object.dll      $(DESTDIR)$(PREFIX)/share/qscheme/object.dll
++	install -D -s struct.dll      $(DESTDIR)$(PREFIX)/share/qscheme/struct.dll
++	install -D -s socket.dll      $(DESTDIR)$(PREFIX)/share/qscheme/socket.dll
++	install -D s.scm              $(DESTDIR)$(PREFIX)/share/qscheme/s.scm
++	install -D macro.scm          $(DESTDIR)$(PREFIX)/share/qscheme/macro.scm
++	install -D loop.scm           $(DESTDIR)$(PREFIX)/share/qscheme/loop.scm
++	install -D wloop.scm          $(DESTDIR)$(PREFIX)/share/qscheme/wloop.scm
++	install -D fib.scm            $(DESTDIR)$(PREFIX)/share/qscheme/fib.scm
++	install -D cat.scm            $(DESTDIR)$(PREFIX)/share/qscheme/cat.scm
++	install -D sgtk/defextern.scm $(DESTDIR)$(PREFIX)/share/qscheme/sgtk/defextern.scm
++	install -d                    $(DESTDIR)$(PREFIX)/share/doc/qscheme/
++	cp doc/html/*.html doc/html/*.css doc/html/*.png $(DESTDIR)$(PREFIX)/share/doc/qscheme/
++	install -D LICENCE_EXCEPTION $(DESTDIR)$(PREFIX)/share/licenses/qscheme/LICENCE_EXCEPTION
+diff -u -r -N qscheme-0.5.1.org/number.c qscheme-0.5.1/number.c
+--- qscheme-0.5.1.org/number.c	2000-05-27 07:17:29.000000000 +0900
++++ qscheme-0.5.1/number.c	2021-03-29 03:04:31.183091200 +0900
+@@ -301,7 +301,7 @@
+   if (x == y) 	return(0);
+   switch(t) {
+   case SOBJ_T_INUM: 
+-	return(((long)x > (long)y) ? 1 : -1 );
++	return(((intptr_t)x > (intptr_t)y) ? 1 : -1 );
+   case SOBJ_T_FNUM:
+ 	if (SCM_FNUM(x) == SCM_FNUM(y))	return(0);
+ 	return((SCM_FNUM(x) > SCM_FNUM(y)) ? 1 : -1);
+diff -u -r -N qscheme-0.5.1.org/number.i qscheme-0.5.1/number.i
+--- qscheme-0.5.1.org/number.i	2000-06-10 07:41:00.000000000 +0900
++++ qscheme-0.5.1/number.i	2021-03-29 03:59:30.446899900 +0900
+@@ -57,8 +57,8 @@
+ 
+ #ifdef INUM_OPTIMIZATION
+ #define OPTIM_LOGOP(op) \
+-if (SCM_INUMP((long)n1 & (long)TOS)) { \
+-  if ((long)n1 op (long)TOS) { TOS=scm_true; NEXT; } TOS=scm_false; NEXT; }
++if (SCM_INUMP((intptr_t)n1 & (intptr_t)TOS)) { \
++  if ((intptr_t)n1 op (intptr_t)TOS) { TOS=scm_true; NEXT; } TOS=scm_false; NEXT; }
+ #else
+ #define OPTIM_LOGOP(op)
+ #endif
+@@ -201,8 +201,8 @@
+   spop(n1);
+ 
+ #ifdef INUM_OPTIMIZATION
+-  if (SCM_INUMP((long)n1 & (long)TOS)) {
+-	long r = SCM_INUM(n1) + SCM_INUM(TOS);
++  if (SCM_INUMP((intptr_t)n1 & (intptr_t)TOS)) {
++	intptr_t r = SCM_INUM(n1) + SCM_INUM(TOS);
+ 	if (SCM_INUM_RANGE(r)) {  TOS = SCM_MKINUM(r);  NEXT; }
+ 	TOS = scm_int2bnum(r);  NEXT;
+   }
+@@ -519,7 +519,11 @@
+ /*D* Returns a random number in range 0-1.0. */
+ Prim(random,	"random", 	0)
+ {
++#ifdef __MINGW32__
++  spush(scm_mkfnum((float)rand()/RAND_MAX));
++#else
+   spush(scm_mkfnum(drand48()));
++#endif
+   NEXT;
+ }
+ 
+@@ -562,7 +566,7 @@
+ Prim(plus1, "1+", 1)
+ {
+   if (SCM_INUMP(TOS) && (SCM_INUM(TOS) < SOBJ_INUM_MAX)) {
+-	(long)TOS += (1 << SOBJ_INUM_SHIFT);
++	TOS += (1 << SOBJ_INUM_SHIFT);
+ 	NEXT;
+   }
+   TOS = scm_add2(SCM_MKINUM(1), TOS);
+@@ -574,7 +578,7 @@
+ Prim(plus2, "2+", 1)
+ {
+   if (SCM_INUMP(TOS) && (SCM_INUM(TOS) < SOBJ_INUM_MAX)) {
+-	(long)TOS += (2 << SOBJ_INUM_SHIFT);
++	TOS += (2 << SOBJ_INUM_SHIFT);
+ 	NEXT;
+   }
+   TOS = scm_add2(SCM_MKINUM(2), TOS);
+@@ -586,7 +590,7 @@
+ Prim(minus1, "1-", 1)
+ {
+   if (SCM_INUMP(TOS) && (SCM_INUM(TOS) > SOBJ_INUM_MIN)) {
+-	(long)TOS += (-1 << SOBJ_INUM_SHIFT);
++	TOS += (-1 << SOBJ_INUM_SHIFT);
+ 	NEXT;
+   }
+   TOS = scm_sub2(TOS, SCM_MKINUM(1));
+@@ -598,7 +602,7 @@
+ Prim(minus2, "2-", 1)
+ {
+   if (SCM_INUMP(TOS) && (SCM_INUM(TOS) > SOBJ_INUM_MIN)) {
+-	(long)TOS += (-2 << SOBJ_INUM_SHIFT);
++	TOS += (-2 << SOBJ_INUM_SHIFT);
+ 	NEXT;
+   }
+   TOS = scm_sub2(TOS, SCM_MKINUM(2));
+diff -u -r -N qscheme-0.5.1.org/object.c qscheme-0.5.1/object.c
+--- qscheme-0.5.1.org/object.c	2000-05-27 07:17:29.000000000 +0900
++++ qscheme-0.5.1/object.c	2021-03-29 04:09:17.407089100 +0900
+@@ -20,8 +20,8 @@
+ SOBJ scm_mkobjdef(int ndefs)
+ {
+   SOBJ new = scm_newcell(SOBJ_T_OBJDEF);
+-  SCM_OBJDEF_AUX(new) =
+-	scm_must_alloc(sizeof(SCM_ObjDefAux) + ((ndefs - 1) * sizeof(SCM_ObjDef)));
++  SCM_AUX(new) =
++	(SCM_ObjDefAux*)scm_must_alloc(sizeof(SCM_ObjDefAux) + ((ndefs - 1) * sizeof(SCM_ObjDef)));
+ 
+   SCM_OBJDEF_AUX(new)->ndefs = ndefs;
+   return(new);
+@@ -43,7 +43,7 @@
+ {
+   if (SCM_OBJDEF_AUX(x)) {
+ 	scm_free(SCM_OBJDEF_AUX(x));
+-	SCM_OBJDEF_AUX(x) = NULL;
++	SCM_AUX(x) = (SCM_ObjDefAux*)NULL;
+   }
+ }
+ 
+@@ -65,7 +65,7 @@
+   SOBJ new = scm_newcell(SOBJ_T_OBJECT);
+   
+   SCM_OBJECT_DEF(new) = def;
+-  SCM_OBJECT_VAL(new) =
++  SCM_CAR(new) =
+ 	scm_must_alloc(sizeof(SCM_ObjVal) + ((nslots - 1) * sizeof(SOBJ)));
+ 
+   SCM_OBJECT_VAL(new)->nslots = nslots;
+@@ -237,7 +237,7 @@
+   int nslots;
+ 
+   if (SCM_OBJECT_VAL(obj) == NULL) {
+-	SCM_OBJECT_VAL(obj) = scm_must_alloc(offsetof(SCM_ObjVal, slot[1]));
++	SCM_CAR(obj) = scm_must_alloc(offsetof(SCM_ObjVal, slot[1]));
+ 	SCM_OBJECT_VAL(obj)->nslots = 1;
+ 	return(0);
+   }
+@@ -246,7 +246,7 @@
+   memcpy(ov, SCM_OBJECT_VAL(obj), offsetof(SCM_ObjVal, slot[nslots]));
+   ov->nslots++;
+   ov->slot[nslots] = NULL;
+-  scm_free(SCM_OBJECT_VAL(obj));   SCM_OBJECT_VAL(obj) = ov;
++  scm_free(SCM_OBJECT_VAL(obj));   SCM_CAR(obj) = ov;
+   return(nslots);
+ }
+ 
+@@ -288,7 +288,7 @@
+   
+   nslots = SCM_OBJECT_VAL(obj)->nslots;
+   size   = offsetof(SCM_ObjVal, slot[nslots]);
+-  SCM_OBJECT_VAL(new) = scm_must_alloc(size);
++  SCM_CAR(new) = scm_must_alloc(size);
+   memcpy(SCM_OBJECT_VAL(new), SCM_OBJECT_VAL(obj), size);
+   return(new);
+ }
+@@ -377,7 +377,7 @@
+   /* make a new objdef with space for 2 more defs */
+   newdef = scm_newcell(SOBJ_T_OBJDEF);
+   d = objdef_append_fields(SCM_OBJDEF_AUX(olddef), 2);
+-  SCM_OBJDEF_AUX(newdef) = d;
++  SCM_AUX(newdef) = d;
+ 
+   /* prepare atom for the set! name */
+   i = strlen(SCM_ATOM_NAME(name));
+@@ -414,7 +414,7 @@
+   if ((olddef = SCM_OBJECT_DEF(obj)) == NULL) SCM_ERR("bad objdef for object",obj);
+   newdef = scm_newcell(SOBJ_T_OBJDEF);
+   d = objdef_append_fields(SCM_OBJDEF_AUX(olddef), 1);
+-  SCM_OBJDEF_AUX(newdef) = d;
++  SCM_AUX(newdef) = d;
+ 
+   slotnr = object_new_slot(obj); /* alloc new slot and get index */
+ 
+diff -u -r -N qscheme-0.5.1.org/port.c qscheme-0.5.1/port.c
+--- qscheme-0.5.1.org/port.c	2000-06-22 09:13:27.000000000 +0900
++++ qscheme-0.5.1/port.c	2021-03-29 03:46:03.020386500 +0900
+@@ -91,11 +91,97 @@
+ 
+ #define QTUM 	128
+ 
++#ifdef __MINGW32__
++ssize_t
++getdelim (char **lineptr, size_t *n, int delimiter, FILE *fp)
++{
++  ssize_t result;
++  size_t cur_len = 0;
++
++  if (lineptr == NULL || n == NULL || fp == NULL)
++    {
++      errno = EINVAL;
++      return -1;
++    }
++
++  if (*lineptr == NULL || *n == 0)
++    {
++      char *new_lineptr;
++      *n = 120;
++      new_lineptr = (char *) realloc (*lineptr, *n);
++      if (new_lineptr == NULL)
++        {
++          result = -1;
++          goto unlock_return;
++        }
++      *lineptr = new_lineptr;
++    }
++
++  for (;;)
++    {
++      int i;
++
++      i = getc(fp);
++      if (i == EOF)
++        {
++          result = -1;
++          break;
++        }
++
++      /* Make enough space for len+1 (for final NUL) bytes.  */
++      if (cur_len + 1 >= *n)
++        {
++          size_t needed_max =
++            SSIZE_MAX < SIZE_MAX ? (size_t) SSIZE_MAX + 1 : SIZE_MAX;
++          size_t needed = 2 * *n + 1;   /* Be generous. */
++          char *new_lineptr;
++
++          if (needed_max < needed)
++            needed = needed_max;
++          if (cur_len + 1 >= needed)
++            {
++              result = -1;
++              errno = EOVERFLOW;
++              goto unlock_return;
++            }
++
++          new_lineptr = (char *) realloc (*lineptr, needed);
++          if (new_lineptr == NULL)
++            {
++              result = -1;
++              goto unlock_return;
++            }
++
++          *lineptr = new_lineptr;
++          *n = needed;
++        }
++
++      (*lineptr)[cur_len] = i;
++      cur_len++;
++
++      if (i == delimiter)
++        break;
++    }
++  (*lineptr)[cur_len] = '\0';
++  result = cur_len ? cur_len : result;
++
++ unlock_return:
++
++  return result;
++}
++
++ssize_t
++getline (char **lineptr, size_t *n, FILE *stream)
++{
++  return getdelim (lineptr, n, '\n', stream);
++}
++#endif
++
+ static int port_file_getline(PORT *p, SOBJ str)
+ {
+   int r;
+   char *buf = NULL;
+-  int  len = 0;
++  ssize_t  len = 0;
+ 
+   r = getline(&buf, &len, p->descr.f);
+   if (r < 0) {
+@@ -408,7 +494,7 @@
+   return(port_string_open(NULL, PORT_CREATE));
+ }
+ 
+-void port_puts(PORT *p, char *str)
++void port_puts(PORT *p, const char *str)
+ {
+   SOBJ s = scm_mkstring(str);
+   port_write(p, s, SCM_STR_LEN(s));
+diff -u -r -N qscheme-0.5.1.org/port.h qscheme-0.5.1/port.h
+--- qscheme-0.5.1.org/port.h	2000-06-03 02:04:46.000000000 +0900
++++ qscheme-0.5.1/port.h	2021-03-29 04:12:59.888242000 +0900
+@@ -68,3 +68,8 @@
+   int	(*putline)	(struct PORT *p, SOBJ str);
+ 
+ } PORT_DESCR;
++
++#ifdef __MINGW32__
++ssize_t
++getline (char **lineptr, size_t *n, FILE *stream);
++#endif
+diff -u -r -N qscheme-0.5.1.org/s.c qscheme-0.5.1/s.c
+--- qscheme-0.5.1.org/s.c	2000-06-13 07:13:24.000000000 +0900
++++ qscheme-0.5.1/s.c	2021-03-30 17:14:51.066284200 +0900
+@@ -10,6 +10,11 @@
+ #include "proc.h"
+ #include "stack.h"
+ 
++#ifdef __MINGW32__
++#include <windows.h>
++#include <shlwapi.h>
++#endif
++
+ /* #define OLD_INTERP */
+ /* #define SHOW_OPTIMIZE_PHASE */
+ 
+@@ -509,7 +514,7 @@
+ }
+ 
+ /*** print an error */
+-void scm_internal_err(char *cfunc, char *msg, SOBJ obj)
++void scm_internal_err(const char *cfunc, char *msg, SOBJ obj)
+ {
+   PORT *p;
+   SOBJ errstr;
+@@ -741,7 +746,11 @@
+ 	return(port);
+ 
+   /* absolute path => do not check for QS_LIB */
++#ifdef __MINGW32__
++  if (!PathIsRelative(fname) || scm_qs_lib == NULL)
++#else
+   if (strchr(fname, '/') != NULL || scm_qs_lib == NULL)
++#endif
+ 	return(NULL);
+ 
+   /* for each path in qs lib, try to load */
+@@ -750,7 +759,11 @@
+   q = scm_qs_lib;
+   path = NULL;
+   while(*p) {
++#ifdef __MINGW32__
++	if ((q = strchr(p, ';')) == NULL) {	/* no more ':' */
++#else
+ 	if ((q = strchr(p, ':')) == NULL) {	/* no more ':' */
++#endif
+ 	  q = p + strlen(p);
+ 	}
+ 	/* alloc space for path + / + filename + \0 */
+@@ -920,7 +933,7 @@
+   scm_type_hook[type_nr] = *type;
+ 
+   /*-- force no call for this type */
+-  scm_type_hook[type_nr].execute = (long)SCM_OPCODE(SCM_OP_NO_CALL);
++  scm_type_hook[type_nr].execute = (intptr_t)SCM_OPCODE(SCM_OP_NO_CALL);
+   
+   return(type_nr);
+ }
+@@ -1116,6 +1129,20 @@
+   scm_symadd("environ", envhash);
+ }
+ 
++#ifdef __MINGW32__
++int get_path_prefix(char *buff, size_t len) {
++  HMODULE hm = GetModuleHandle(0);
++  if(GetModuleFileName(hm, buff, len) > 0) {
++    for (size_t i=strlen(buff)-1; i>0; --i)
++    if(buff[i]=='\\') {
++      buff[i] = '\0';
++      return i;
++    }
++  }
++  return 0;
++}
++#endif
++
+ /*-- the init function. does whatever is necessary to startup a new
+  * scheme interpreter.
+  *
+@@ -1145,14 +1172,34 @@
+ 
+   /* capture important env variables */
+   if ((p = getenv("QS_LIB")) == NULL) {
++#ifdef __MINGW32__
++	char dir[PATH_MAX];
++	if(get_path_prefix(dir, sizeof(dir))) {
++	  strcat(dir, "\\..\\share\\qscheme");
++	  scm_qs_lib = scm_must_alloc(strlen(dir) + 1);
++	  strcpy(scm_qs_lib, dir);
++	}
++#else
+ 	scm_qs_lib = scm_must_alloc(strlen(SCM_DEFAULT_LIB_PATH) + 1);
+ 	strcpy(scm_qs_lib, SCM_DEFAULT_LIB_PATH);
++#endif
+   } else {
++#ifdef __MINGW32__
++	char dir[PATH_MAX];
++	if(get_path_prefix(dir, sizeof(dir))) {
++	  strcat(dir, "\\..\\share\\qscheme");
++	  scm_qs_lib = scm_must_alloc(strlen(dir) + strlen(p) + 2);
++	  strcpy(scm_qs_lib, p);
++	  strcpy(scm_qs_lib, ";");
++	  strcpy(scm_qs_lib, dir);
++	}
++#else
+ 	scm_qs_lib = scm_must_alloc(strlen(SCM_DEFAULT_LIB_PATH) +
+ 								strlen(p) + 2);
+ 	strcpy(scm_qs_lib, p);
+ 	strcat(scm_qs_lib, ":");
+ 	strcat(scm_qs_lib, SCM_DEFAULT_LIB_PATH);
++#endif
+   }
+   /*  printf("; library search path=%s\n", scm_qs_lib); */
+ 
+@@ -1201,7 +1248,9 @@
+   scm_init_module();			/* init the module system */
+   scm_init_asm();				/* init the assembler */
+   scm_init_misc();				/* init the misc system */
++#ifndef __MINGW32__
+   scm_init_process();
++#endif
+   scm_init_file();
+ 
+   if (argc > 0) {
+diff -u -r -N qscheme-0.5.1.org/s.h qscheme-0.5.1/s.h
+--- qscheme-0.5.1.org/s.h	2000-06-16 06:15:42.000000000 +0900
++++ qscheme-0.5.1/s.h	2021-03-30 02:39:50.206467300 +0900
+@@ -5,7 +5,7 @@
+  * $Id: s.h 1.49.1.61 Fri, 03 Mar 2000 01:32:32 +0100 crad $
+  */
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#include "config.h"
+ #endif
+ 
+ #include <stdio.h>
+@@ -318,7 +318,7 @@
+ 
+ /* type descriptor */
+ typedef struct {
+-  long execute;					/* execution address */
++  intptr_t execute;					/* execution address */
+   char *name;					/* type name */
+   void (*mark)(SOBJ obj);		/* func to mark this type of object */
+   void (*sweep)(SOBJ obj);		/* func to free this type of object */
+@@ -354,7 +354,7 @@
+ 
+ #define SCM_INUM_RANGE(x)	(((x) >= SOBJ_INUM_MIN) && ((x) <= SOBJ_INUM_MAX)) 
+ 						 
+-#define SCM_INUMP(x)	((long)(x) & SOBJ_INUM_TAG)
++#define SCM_INUMP(x)	((intptr_t)(x) & SOBJ_INUM_TAG)
+ 
+ /*!!!! keep this list sync with scm_type_hook[] in s.c !!!!*/
+ enum SOBJ_TYPES {
+@@ -404,8 +404,8 @@
+ #define SCM_VALUE(x,t,f)	((x)->data.t.f)
+ 
+ /*-- some primitive macros */
+-#define SCM_INUM(x)			((long)(x) >> SOBJ_INUM_SHIFT)
+-#define SCM_MKINUM(x)		((SOBJ)(((long)(x)<<SOBJ_INUM_SHIFT)|SOBJ_INUM_TAG))
++#define SCM_INUM(x)			((intptr_t)(x) >> SOBJ_INUM_SHIFT)
++#define SCM_MKINUM(x)		((SOBJ)(((intptr_t)(x)<<SOBJ_INUM_SHIFT)|SOBJ_INUM_TAG))
+ 
+ #define SCM_MKBOOL(x)		((x) ? scm_true : scm_false)
+ #define SCM_FALSEP(x)		((x) == scm_false)
+@@ -599,8 +599,6 @@
+ #define SCM_ANYSTRP(x)	\
+   (SCM_STRINGP(x)||SCM_ATOMP(x)||SCM_KEYWORDP(x)||SCM_SYMBOLP(x))
+ 
+-static char *opc_str[];
+-
+ /*-- config */
+ #define SCM_SYM_HASH_SIZE	101
+ 
+@@ -700,3 +698,9 @@
+ #define SCM_ERR(msg,obj)	scm_internal_err(NULL,msg,obj)
+ #endif
+ 
++struct CHR_SYM {
++  char *str;
++  char chr;
++};
++
++extern struct CHR_SYM csym[10];
+diff -u -r -N qscheme-0.5.1.org/socket.c qscheme-0.5.1/socket.c
+--- qscheme-0.5.1.org/socket.c	2000-05-27 07:17:29.000000000 +0900
++++ qscheme-0.5.1/socket.c	2021-03-29 04:17:39.180545000 +0900
+@@ -4,10 +4,14 @@
+  *
+  */
+ #include <sys/types.h>
++#ifdef __MINGW32__
++#include <winsock2.h>
++#else
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <netdb.h>
++#endif
+ #include <memory.h>
+ #include <errno.h>
+ 
+@@ -39,7 +43,7 @@
+ {
+   SOBJ new;
+   new = scm_newcell(SOBJ_T_SOCKET);
+-  SCM_SOCKET(new) = scm_must_alloc(sizeof(SCM_SocketAux));
++  SCM_AUX(new) = scm_must_alloc(sizeof(SCM_SocketAux));
+   memset(SCM_SOCKET(new), 0, sizeof(SCM_SocketAux));
+   return(new);
+ }
+@@ -323,7 +327,7 @@
+ 	/*	scm_puts("; sweeping socket "); scm_cprint(x); */
+ 	scm_socket_shutdown2(x, 1);
+ 	scm_free(SCM_SOCKET(x));
+-	SCM_SOCKET(x) = NULL;
++	SCM_AUX(x) = NULL;
+   }
+ }
+ 
+diff -u -r -N qscheme-0.5.1.org/sproto.h qscheme-0.5.1/sproto.h
+--- qscheme-0.5.1.org/sproto.h	2000-06-23 08:10:23.000000000 +0900
++++ qscheme-0.5.1/sproto.h	2021-03-29 16:45:32.458359600 +0900
+@@ -58,7 +58,6 @@
+ SOBJ scm_segv PROTO ((void));
+ void scm_init_catch PROTO ((void));
+ /* From `chr.c': */
+-extern struct CHR_SYM csym[];
+ extern Sobject scm_chr_array[];
+ int scm_is_pointer_to_chr_array (SOBJ obj );
+ SOBJ scm_mkchar (int c );
+@@ -367,7 +366,7 @@
+ PORT * port_open_output_file (char *fname );
+ PORT * port_open_input_string (char *string );
+ PORT * port_open_output_string PROTO ((void));
+-void port_puts (PORT *p , char *str );
++void port_puts (PORT *p , const char *str );
+ void port_putn (PORT *p , long n );
+ void port_putx (PORT *p , void *ptr );
+ void port_putd (PORT *p , double n );
+@@ -464,7 +463,7 @@
+ int scm_read_token (PORT *port );
+ SOBJ scm_read_list (PORT *port );
+ SOBJ scm_read_port (PORT *port );
+-void scm_internal_err (char *cfunc , char *msg , SOBJ obj );
++void scm_internal_err (const char *cfunc , char *msg , SOBJ obj );
+ 
+ #ifdef OLD
+ void SCM_ERR (char *msg , SOBJ obj );
+@@ -619,7 +618,7 @@
+ void scm_dump_env (SOBJ e );
+ void scm_vmfunc_mark (SOBJ obj );
+ void scm_vmfunc_sweep (SOBJ obj );
+-inline void scm_vm_move_stack (SOBJ *dst , SOBJ *src , int nitems );
++void scm_vm_move_stack (SOBJ *dst , SOBJ *src , int nitems );
+ void scm_vm (SCM_VMD *vm );
+ void scm_engine_init PROTO ((void));
+ SOBJ scm_run_engine (SOBJ *ip );
+diff -u -r -N qscheme-0.5.1.org/stamp-h qscheme-0.5.1/stamp-h
+--- qscheme-0.5.1.org/stamp-h	1970-01-01 09:00:00.000000000 +0900
++++ qscheme-0.5.1/stamp-h	2021-03-29 01:55:11.555110200 +0900
+@@ -0,0 +1 @@
++timestamp
+diff -u -r -N qscheme-0.5.1.org/struct.c qscheme-0.5.1/struct.c
+--- qscheme-0.5.1.org/struct.c	2000-05-27 07:17:29.000000000 +0900
++++ qscheme-0.5.1/struct.c	2021-03-29 04:15:55.652947000 +0900
+@@ -16,7 +16,7 @@
+ /*** Create a new dblock. If pointer is NULL, a new block is
+  * allocated. If ptr is given, block is assumed to be statically
+  * allocated. */
+-SOBJ scm_dblock_new(void *ptr, int size)
++SOBJ scm_dblock_new(void *ptr, intptr_t size)
+ {
+   SOBJ new = scm_newcell(SOBJ_T_DBLOCK);
+ 
+@@ -24,8 +24,8 @@
+ 	ptr = scm_must_alloc(size);
+ 	size |= SCM_DBLOCK_ALLOCATED;
+   }
+-  SCM_DBLOCK_ADDR(new) = ptr;
+-  SCM_DBLOCK_SIZE(new) = size;
++  SCM_CAR(new) = ptr;
++  SCM_CDR(new) = size;
+   return(new);
+ }
+ 
+@@ -33,8 +33,8 @@
+ {
+   if (SCM_DBLOCK_SIZE(x) & SCM_DBLOCK_ALLOCATED) {
+ 	scm_free(SCM_DBLOCK_ADDR(x));
+-	SCM_DBLOCK_ADDR(x) = NULL;
+-	SCM_DBLOCK_SIZE(x) = 0;
++	SCM_CAR(x) = NULL;
++	SCM_CDR(x) = 0;
+   }
+ }
+ 
+@@ -136,7 +136,7 @@
+ SOBJ scm_struct_def_new(int nfields)
+ {
+   SOBJ new = scm_newcell(SOBJ_T_STRUCT_DEF);
+-  SCM_STRUCT_DEF(new) = scm_struct_def_alloc(nfields);
++  SCM_AUX(new) = scm_struct_def_alloc(nfields);
+   return(new);
+ }
+ 
+@@ -156,7 +156,7 @@
+ {
+   if (SCM_STRUCT_DEF(x)) {
+ 	scm_free(SCM_STRUCT_DEF(x));
+-	SCM_STRUCT_DEF(x) = NULL;
++	SCM_AUX(x) = NULL;
+   }
+ }
+ 
+diff -u -r -N qscheme-0.5.1.org/struct.h qscheme-0.5.1/struct.h
+--- qscheme-0.5.1.org/struct.h	2000-05-27 07:17:29.000000000 +0900
++++ qscheme-0.5.1/struct.h	2021-03-29 04:14:27.277840700 +0900
+@@ -9,7 +9,7 @@
+ 
+ #define SCM_DBLOCKP(x)			(SCM_OBJTYPE(x) == SOBJ_T_DBLOCK)
+ #define SCM_DBLOCK_ADDR(x)		((void*)SCM_CAR(x))
+-#define SCM_DBLOCK_SIZE(x)		((long)(SCM_CDR(x)))
++#define SCM_DBLOCK_SIZE(x)		((intptr_t)(SCM_CDR(x)))
+ 
+ #define SCM_DBLOCK_ALLOCATED	(1L << ((sizeof(long)*8)-1))
+ #define SCM_DBLOCK_SIZE_MASK	~(SCM_DBLOCK_ALLOCATED)
+diff -u -r -N qscheme-0.5.1.org/vm2.c qscheme-0.5.1/vm2.c
+--- qscheme-0.5.1.org/vm2.c	2000-06-01 23:47:00.000000000 +0900
++++ qscheme-0.5.1/vm2.c	2021-03-29 02:13:43.212111500 +0900
+@@ -185,8 +185,8 @@
+ 
+ #define RETURN(value) { TOS=(value);  NEXT; }
+ 
+-#define Prim(name,str,nargs)	l_##name##: /* str */
+-#define PrimVarargs(name,str)	l_##name##: /* str */
++#define Prim(name,str,nargs)	l_##name: /* str */
++#define PrimVarargs(name,str)	l_##name: /* str */
+ 
+ 
+ /****************************************************************
+@@ -333,7 +333,7 @@
+ /*
+  * Copy the stack. Works also with overlapping areas.
+  */
+-inline void scm_vm_move_stack(SOBJ *dst, SOBJ *src, int nitems)
++void scm_vm_move_stack(SOBJ *dst, SOBJ *src, int nitems)
+ {
+   if (src == dst || nitems == 0)
+ 	return;
+@@ -392,7 +392,7 @@
+   ef = (SCM_EnvFrame*)sp;											\
+   /* alloc space on stack for an env object and fill it's frame and \
+      next fields */													\
+-  ((void*)sp) -= sizeof(Sobject);									\
++  sp = (SOBJ*)((char*)sp - sizeof(Sobject));						\
+   SCM_ENV_FRAME((SOBJ)sp) = ef;										\
+   SCM_ENV_NEXT((SOBJ)sp) = nextenv;									\
+   env = (SOBJ)sp;													\
+@@ -530,7 +530,7 @@
+ 	  for (i = 0; i < scm_type_next_descr; i++) {
+ 		opc = scm_type_hook[i].execute;
+ 		if (opc >= 0 && opc < SCM_OP_MAX) {
+-		  scm_type_hook[i].execute = (long)symbol[opc].address;
++		  scm_type_hook[i].execute = (intptr_t)symbol[opc].address;
+ 		}
+ 	  }
+ 
