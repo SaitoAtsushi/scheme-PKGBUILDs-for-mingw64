@@ -1,0 +1,37 @@
+_realname=wisp
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=20201220
+pkgrel=1
+pkgdesc="R5RS scheme implementation."
+arch=('any')
+url="https://github.com/adrmcintyre/wisp"
+license=('unknown')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-readline" "coreutils" "make" "autoconf")
+source=("wisp-b11665d.tar.gz::https://codeload.github.com/adrmcintyre/wisp/tar.gz/b11665d9ca20773b5c344cf2af14de05ae2b4fd4"
+        "wisp-mingw.patch")
+sha256sums=('45f69ec68424eb2a2378ef25132ac79ec9ed2f49474fd8e81c89580df0b214f7'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/wisp-b11665d9ca20773b5c344cf2af14de05ae2b4fd4
+  patch -p1 -i ${srcdir}/wisp-mingw.patch
+  autoreconf --install
+}
+
+build() {
+  cd ${srcdir}/wisp-b11665d9ca20773b5c344cf2af14de05ae2b4fd4
+  ./configure
+  make LDFLAGS="-static -Wl,--allow-multiple-definition" LIBS="-lshlwapi -ltermcap"
+}
+
+package() {
+  cd ${srcdir}/wisp-b11665d9ca20773b5c344cf2af14de05ae2b4fd4
+  install -s -D src/wisp.exe ${pkgdir}${MINGW_PREFIX}/bin/wisp.exe
+  install -d ${pkgdir}${MINGW_PREFIX}/share/wisp/core
+  install -d ${pkgdir}${MINGW_PREFIX}/share/wisp/srfi
+  install lib/*.wisp ${pkgdir}${MINGW_PREFIX}/share/wisp/
+  install lib/core/*.wisp ${pkgdir}${MINGW_PREFIX}/share/wisp/core
+  install lib/srfi/*.wisp ${pkgdir}${MINGW_PREFIX}/share/wisp/srfi
+}
