@@ -1,0 +1,36 @@
+_realname=fools
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=1.3.2
+pkgrel=1
+pkgdesc="A small portable Scheme interpreter that is R4RS conformant."
+arch=('any')
+url="https://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/lang/scheme/impl/fools/0.html"
+license=('unknown')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "make")
+source=("https://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/lang/scheme/impl/fools/fools132.tgz"
+        "fools-mingw.patch")
+sha256sums=('122b5df4b3d5127d9ee4766cc63512f47101f32d2fd9fd620b804905b7a1fce9'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/fools-src
+  patch -p1 -i ${srcdir}/fools-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/fools-src
+  make
+}
+
+package() {
+  cd ${srcdir}/fools-src
+  install -s -D fools.exe ${pkgdir}${MINGW_PREFIX}/bin/fools.exe
+  install fl ${pkgdir}${MINGW_PREFIX}/bin/fl
+  install -d ${pkgdir}${MINGW_PREFIX}/share/fools
+  install -d ${pkgdir}${MINGW_PREFIX}/share/doc/fools
+  install scm/*.scm ${pkgdir}${MINGW_PREFIX}/share/fools
+  install doc/*.doc ${pkgdir}${MINGW_PREFIX}/share/doc/fools
+
+}

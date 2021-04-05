@@ -1,0 +1,531 @@
+diff -u -r fools-src.org/Basic.c fools-src/Basic.c
+--- fools-src.org/Basic.c	1991-10-17 03:45:28.000000000 +0900
++++ fools-src/Basic.c	2021-04-05 11:21:41.941471000 +0900
+@@ -43,7 +43,7 @@
+ 	(*printer)(obj, file);
+     else {
+ 	char *type = CLASS(obj)->type;
+-	(void)fprintf(file, "#<%s %#lx>", type, (long)obj);
++	(void)fprintf(file, "#<%s %#lx>", type, (intptr_t)obj);
+     }
+     if (ferror(file))
+ 	errorPrint(BadWrite, "for file descriptor %d", fileno(file));
+diff -u -r fools-src.org/codegen.c fools-src/codegen.c
+--- fools-src.org/codegen.c	1991-10-17 03:45:32.000000000 +0900
++++ fools-src/codegen.c	2021-04-05 11:55:40.254791600 +0900
+@@ -417,7 +417,7 @@
+ 	case code_cfuncN:
+ 	    i = vec[2].num;
+ 	    (void)printf("cfunc=%#lx, n=%d, N=%d",
+-			 (long)vec[0].fcn, vec[1].num, vec[2].num);
++			 (intptr_t)vec[0].fcn, vec[1].num, vec[2].num);
+ 	    for (i = 0; i < vec[2].num; ++i)
+ 		(void)printf(", op%d=%d", i, vec[2+i].num);
+ 	    puts(")");
+@@ -425,7 +425,7 @@
+ 	    break ;
+ 
+ 	case code_cfunc:
+-	    (void)printf("cfunc=0x%lx, n=%d)\n", (long)vec[0].fcn, vec[1].num);
++	    (void)printf("cfunc=0x%lx, n=%d)\n", (intptr_t)vec[0].fcn, vec[1].num);
+ 	    break ;
+ 	    
+ 	default:
+diff -u -r fools-src.org/cont.c fools-src/cont.c
+--- fools-src.org/cont.c	1991-10-17 03:45:33.000000000 +0900
++++ fools-src/cont.c	2021-04-05 11:55:45.975728700 +0900
+@@ -8,7 +8,6 @@
+ static char SccsId[] = "@(#)cont.c	1.4 1/16/90";
+ #endif /* lint */
+ 
+-extern char *realloc();
+ 
+ Obj curCont;		/* current continuation */
+ contState_t *ccState;	/* state of current continuation */
+diff -u -r fools-src.org/error.c fools-src/error.c
+--- fools-src.org/error.c	1991-10-17 03:45:34.000000000 +0900
++++ fools-src/error.c	2021-04-05 11:55:06.416728600 +0900
+@@ -27,11 +27,6 @@
+ static char SccsId[] = "@(#)error.c	1.12 3/2/90";
+ #endif
+ 
+-/* NOTE: the printing routines have STDC and CC versions */
+-
+-extern int errno, sys_nerr;
+-extern char *sys_errlist[];
+-
+ /* global error code */
+ error_code errorFlag;
+ 
+@@ -402,9 +397,8 @@
+ static Boolean intOkay = FALSE;
+ 
+ /*ARGSUSED*/
+-static int intHandler(sig, code, scp)
+-     int sig, code;
+-     struct sigcontext *scp;
++static void intHandler(sig)
++     int sig;
+ {
+     if (!intOkay) {
+ 	intHit = TRUE;
+@@ -442,9 +436,8 @@
+ }
+ 
+ /*ARGSUSED*/
+-static int fpeHandler(sig, code, scp)
+-     int sig, code;
+-     struct sigcontext *scp;
++static void fpeHandler(sig)
++     int sig;
+ {
+     errorPrint(SigFPE, (char *)NULL);
+     /*NOTREACHED*/
+diff -u -r fools-src.org/fl fools-src/fl
+--- fools-src.org/fl	1991-10-17 04:20:22.000000000 +0900
++++ fools-src/fl	2021-04-05 21:54:07.319933500 +0900
+@@ -1,3 +1,3 @@
+-#!/usr/share/new/bin/fools -s
+-(load "/usr/share/new/lib/fools/init.scm")
+-(load "/usr/share/new/lib/fools/extra.scm")
++#!/usr/bin/env fools -s
++(load (string-append (module-path) "/../share/fools/init.scm"))
++(load (string-append (module-path) "/../share/fools/extra.scm"))
+diff -u -r fools-src.org/fools.h fools-src/fools.h
+--- fools-src.org/fools.h	1991-10-17 03:45:34.000000000 +0900
++++ fools-src/fools.h	2021-04-05 11:54:47.024789300 +0900
+@@ -25,6 +25,7 @@
+ #include <stdio.h>
+ #include <strings.h>
+ #include <setjmp.h>
++#include <stdlib.h>
+ 
+ #include "config.h"
+ #include "stuff.h"
+diff -u -r fools-src.org/Frame.c fools-src/Frame.c
+--- fools-src.org/Frame.c	1991-10-17 03:45:29.000000000 +0900
++++ fools-src/Frame.c	2021-04-05 11:54:42.652786800 +0900
+@@ -36,7 +36,7 @@
+ static int fgetcmp(key, binding)
+      Obj key, binding;
+ {
+-    return (long)key - (long)objCar(binding);
++    return (intptr_t)key - (intptr_t)objCar(binding);
+ }
+ 
+ /* Get the binding of key in frame (returns NULL if key is not defined). */
+@@ -115,7 +115,7 @@
+      struct finsert_s *key;
+      Obj binding;
+ {
+-    return (long)key->key - (long)objCar(binding);
++    return (intptr_t)key->key - (intptr_t)objCar(binding);
+ }
+ 
+ /* Decide what to put in the tree.  When old is NULL, the node is empty
+diff -u -r fools-src.org/gc.c fools-src/gc.c
+--- fools-src.org/gc.c	1991-10-17 03:45:34.000000000 +0900
++++ fools-src/gc.c	2021-04-05 11:54:59.878761900 +0900
+@@ -136,7 +136,6 @@
+      Class class;
+ {
+     Obj new;
+-    extern char *malloc();
+ 
+ #ifdef USE_MALLOC
+     new = (Obj)malloc(class->size); /* largest object */
+@@ -155,7 +154,6 @@
+      Class class;
+ {
+     Obj new;
+-    extern char *malloc();
+ 
+ #ifdef USE_MALLOC
+     new = (Obj)malloc(class->size); /* largest object */
+diff -u -r fools-src.org/globals.h fools-src/globals.h
+--- fools-src.org/globals.h	1991-10-17 03:45:35.000000000 +0900
++++ fools-src/globals.h	2021-04-05 11:46:33.616778900 +0900
+@@ -25,7 +25,7 @@
+ extern Obj GlobalEnv, CurrentPackage;
+ 
+ /* standard input and output files */
+-Obj InFile, OutFile;
++extern Obj InFile, OutFile;
+ 
+ #ifdef DEBUG
+ /* debugging flags */
+diff -u -r fools-src.org/main.c fools-src/main.c
+--- fools-src.org/main.c	1991-10-17 03:45:35.000000000 +0900
++++ fools-src/main.c	2021-04-05 16:22:17.869886500 +0900
+@@ -138,6 +138,7 @@
+     return TRUE;
+ }
+ 
++int
+ main(argc, argv)
+      int argc;
+      char *argv[];
+diff -u -r fools-src.org/Makefile fools-src/Makefile
+--- fools-src.org/Makefile	1991-10-17 04:24:51.000000000 +0900
++++ fools-src/Makefile	2021-04-05 21:35:48.818891800 +0900
+@@ -4,8 +4,8 @@
+ DEFINE = -O
+ DATE = -DDATE="\"`date`\""
+ 
+-CC =	cc
+-CLIBS =	-lm
++CC =	gcc
++CLIBS =	-lm -lshlwapi
+ CFLAGS = ${DEFINE} ${INC} ${DATE}
+ 
+ SRCS =	Basic.c Number.c Pair.c String.c Vector.c File.c Proc.c Frame.c \
+@@ -25,8 +25,8 @@
+ 	scm/test.scm
+ MISC =	Makefile fl
+ 
+-fools:	${OBJS}
+-	${CC} ${CFLAGS} -o fools ${OBJS} ${CLIBS} ; rm -f version.o
++fools.exe:	${OBJS}
++	${CC} ${CFLAGS} -o $@ ${OBJS} ${CLIBS} ; rm -f version.o
+ 
+ tags:
+ 	etags -t -w $(SRCS) $(HDRS)
+@@ -35,7 +35,7 @@
+ 	lint ${CFLAGS} -DDATE=\"lint\" ${SRCS}
+ 
+ clean:
+-	rm -f fools ${OBJS}
++	rm -f fools.exe ${OBJS}
+ 
+ tar:
+ 	tar cvf fools.tar ${HDRS} ${SRCS} ${LISP} ${MISC}
+diff -u -r fools-src.org/mathprim.c fools-src/mathprim.c
+--- fools-src.org/mathprim.c	1991-10-17 03:45:35.000000000 +0900
++++ fools-src/mathprim.c	2021-04-05 14:33:49.881811600 +0900
+@@ -316,14 +316,14 @@
+ {
+     ASSERT(argc == 1);
+     typeCheck(argv[0], Integer);
+-    return newInteger(gcNew, random() % objInteger(argv[0]));
++    return newInteger(gcNew, rand() % objInteger(argv[0]));
+ }
+ 
+ DEFINE(primSrandom)
+ {
+     ASSERT(argc == 1);
+     typeCheck(argv[0], Integer);
+-    srandom((int)objInteger(argv[0]));
++    srand((int)objInteger(argv[0]));
+     return argv[0];
+ }
+ 
+diff -u -r fools-src.org/memory.c fools-src/memory.c
+--- fools-src.org/memory.c	1991-10-17 03:46:37.000000000 +0900
++++ fools-src/memory.c	2021-04-05 16:18:06.371912000 +0900
+@@ -5,9 +5,14 @@
+ #endif
+ 
+ #include <stdio.h>
++#include <stdlib.h>
+ #include "memory.h"
+ 
+-extern char *malloc();
++#ifdef __MINGW32__
++#include <string.h>
++#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
++#endif
++
+ 
+ /* Add mem->heapsize blocks of size mem->blksize to mem */
+ void memExtend(mem)
+diff -u -r fools-src.org/opcodes.c fools-src/opcodes.c
+--- fools-src.org/opcodes.c	1991-10-17 03:45:36.000000000 +0900
++++ fools-src/opcodes.c	2021-04-05 11:15:09.701936100 +0900
+@@ -59,6 +59,7 @@
+ /* forward declarations */
+ static Obj buildFrame();
+ static void popFrame(), traceExit(), errorLocal(), codeArgCheck();
++static int flattenList(Obj list, Obj proc);
+ 
+ /* reset codeExec registers (refers to local variables in codeExec) */
+ #define CODE_RESET()\
+diff -u -r fools-src.org/parser.c fools-src/parser.c
+--- fools-src.org/parser.c	1991-10-17 03:45:36.000000000 +0900
++++ fools-src/parser.c	2021-04-05 11:07:57.058989000 +0900
+@@ -13,7 +13,9 @@
+ 
+ #include "fools.h"
+ #include <ctype.h>
++#ifndef __MINGW32__
+ #include <sys/ioctl.h>
++#endif
+ #include "utils.h"
+ #include "parser.h"
+ 
+diff -u -r fools-src.org/prim.c fools-src/prim.c
+--- fools-src.org/prim.c	1991-10-17 03:45:37.000000000 +0900
++++ fools-src/prim.c	2021-04-05 16:23:37.268942500 +0900
+@@ -25,6 +25,75 @@
+ static char SccsId[] = "%W% %G%";
+ #endif
+ 
++#ifdef __MINGW32__
++#include <stdint.h>
++void Sleep(uint32_t dwMilliseconds);
++#define sleep(s) Sleep((s)*1000)
++
++void* CreateFileA(
++    const char *lpFileName,
++    uint32_t   dwDesiredAccess,
++    uint32_t   dwShareMode,
++    void       *lpSecurityAttributes,
++    uint32_t   dwCreationDisposition,
++    uint32_t   dwFlagsAndAttributes,
++    void       *hTemplateFile
++);
++
++int CloseHandle(void *hObject);
++void SetLastError(uint32_t dwErrCode);
++
++#define FILE_BEGIN 0
++#define INVALID_SET_FILE_POINTER ((uint32_t)-1)
++
++static int win_truncate(void* file, off_t len)
++{
++    int SetEndOfFile(void *hFile);
++    uint32_t SetFilePointer(void *hFile, uint32_t lDistance, uint32_t *pDistanceHigh, uint32_t dwMoveMethod);
++
++    /* TODO: 64bit size support! */
++    uint32_t r1 = SetFilePointer(file, (uint32_t)len, NULL, FILE_BEGIN);
++    if (r1 == INVALID_SET_FILE_POINTER) return -1;
++    int r2 = SetEndOfFile(file);
++    if (r2 == 0) return -1;
++    return 0;
++}
++
++#define FILE_SHARE_READ 0x00000001
++#define FILE_SHARE_WRITE 0x00000002
++#define OPEN_EXISTING 3
++#define INVALID_HANDLE_VALUE ((void*)(intptr_t)-1)
++#define GENERIC_WRITE 0x40000000
++
++int truncate(const char *path, off_t len)
++{
++    void* file;
++    int r;
++
++    file = CreateFileA(path, GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
++    if (file == INVALID_HANDLE_VALUE) return -1;
++    r = win_truncate(file, len);
++    if (r < 0) {
++        uint32_t errcode = GetLastError();
++        CloseHandle(file);
++        SetLastError(errcode);
++        return -1;
++    }
++    CloseHandle(file);
++    return 0;
++}
++
++int ftruncate(int fd, off_t len)
++{
++    void* h = (void*)_get_osfhandle(fd);
++    int r;
++    if (h == INVALID_HANDLE_VALUE) return -1;
++    r = win_truncate(h, len);
++    if (r < 0) return -1;
++    return 0;
++}
++#endif
++
+ 	/* pairs */
+ 
+ DEFINE(primCons)
+@@ -436,6 +505,7 @@
+ 	/*NOTREACHED*/
+ }
+ 
++#ifndef __MINGW32__
+ DEFINE(primFileMode)
+ {
+ 	ASSERT(argc == 2);
+@@ -458,6 +528,7 @@
+ 	}
+ 	/*NOTREACHED*/
+ }
++#endif
+ 
+ DEFINE(primOpenFile)
+ {
+@@ -1367,6 +1438,30 @@
+     return objHasCycle(argv[0]) ? TrueSymb : FalseSymb;
+ }
+ 
++#ifdef __MINGW32__
++
++uint32_t GetModuleFileNameA(void *hModule, char *lpFilename, uint32_t nSize);
++int PathRemoveFileSpecA(char *pszPath);
++
++char *internal_module_path(void)
++{
++	static char buf[1024] = "";
++	uint32_t size = GetModuleFileNameA(NULL, buf, sizeof(buf));
++	if(size == sizeof(buf) || size == 0) return NULL;
++	PathRemoveFileSpecA(buf);
++	return buf;
++}
++
++DEFINE(primModulePath)
++{
++    ASSERT(argc == 0);
++    char *path = internal_module_path();
++    if(path == NULL) errorPrint(Other, "unable to get module filename.");
++	Obj new = newString(gcNew, path);
++	return new;
++}
++#endif
++
+ struct prim_s {
+     char *name;
+     F_OBJ func;
+@@ -1416,7 +1511,11 @@
+     { "file-access",	primAccess,		0,	2 },
+     { "file-seek",	primFileSeek,		0,	3 },
+     { "file-tell",	primFileTell,		0,	1 },
++#ifdef __MINGW32__
++    { "module-path", primModulePath, 0, 0 },
++#else
+     { "file-mode",	primFileMode,		0,	2 },
++#endif
+ 
+     { "vector->list",	primVec2List,		0,	1 },
+     { "list->vector",	primList2Vec,		0,	1 },
+diff -u -r fools-src.org/Proc.c fools-src/Proc.c
+--- fools-src.org/Proc.c	1991-10-17 03:45:30.000000000 +0900
++++ fools-src/Proc.c	2021-04-05 11:25:22.464471900 +0900
+@@ -27,7 +27,7 @@
+ 
+     if (name = DATA(proc, name, procInst))
+ 	(void)fprintf(file, "#<%s %s>", CLASS(proc)->type, name);
+-    else (void)fprintf(file, "#<%s %#lx>", CLASS(proc)->type, (long)proc);
++    else (void)fprintf(file, "#<%s %#lx>", CLASS(proc)->type, (intptr_t)proc);
+ }
+ 
+ /* procedure class struct */
+diff -u -r fools-src.org/scm/extra.scm fools-src/scm/extra.scm
+--- fools-src.org/scm/extra.scm	1991-10-17 04:27:46.000000000 +0900
++++ fools-src/scm/extra.scm	2021-04-05 21:34:09.534871600 +0900
+@@ -247,7 +247,7 @@
+ ;;; packages
+ 
+ ;; where to look for packages (include a trailing slash)
+-(define *package-path* '("./" "~/scm/" "/usr/share/new/lib/fools/"))
++(define *package-path* (list "./" (string-append (module-path) "/../share/fools/")))
+ 
+ ;; file extension for packages
+ (define *package-ext* ".scm")
+diff -u -r fools-src.org/String.c fools-src/String.c
+--- fools-src.org/String.c	1991-10-17 03:45:31.000000000 +0900
++++ fools-src/String.c	2021-04-05 11:24:15.501522200 +0900
+@@ -13,6 +13,7 @@
+ 
+ #include "fools.h"
+ #include <ctype.h>
++#include <stdlib.h>
+ 
+ #ifndef lint
+ static char SccsId[] = "@(#)String.c	1.11 2/23/90";
+@@ -112,7 +113,7 @@
+ {
+     unsigned int r;
+ 
+-    for (r = 0; *s != NULL; s += 1) {
++    for (r = 0; *s != '\0'; s += 1) {
+         r = (r << 4) + *s;
+         if (r > 0x0fffffff) {
+             r ^= (r >> 24) & 0xf0;
+@@ -166,7 +167,7 @@
+ static int propCompare(a, b)
+      struct sym_prop_s *a, *b;
+ {
+-    return (long)a->sym - (long)b->sym;
++    return (intptr_t)a->sym - (intptr_t)b->sym;
+ }
+ 
+ /* compare a symbol to a struct sym_prop_s */
+@@ -174,7 +175,7 @@
+      Obj a;
+      struct sym_prop_s *b;
+ {
+-    return (long)a - (long)b->sym;
++    return (intptr_t)a - (intptr_t)b->sym;
+ }
+     
+ /* insert new and unlink the old */
+diff -u -r fools-src.org/stuff.c fools-src/stuff.c
+--- fools-src.org/stuff.c	1991-10-17 03:46:38.000000000 +0900
++++ fools-src/stuff.c	2021-04-05 11:56:46.424752800 +0900
+@@ -2,10 +2,9 @@
+ 
+ #include <stdio.h>
+ #include <strings.h>
++#include <stdlib.h>
+ #include "stuff.h"
+ 
+-extern char *malloc();
+-extern char *calloc();
+ 
+ void
+ mallocError()
+diff -u -r fools-src.org/utils.c fools-src/utils.c
+--- fools-src.org/utils.c	1991-10-17 03:45:38.000000000 +0900
++++ fools-src/utils.c	2021-04-05 16:12:14.332902000 +0900
+@@ -16,7 +16,13 @@
+ #include "refine.h"
+ #include "codegen.h"
+ #include "parser.h"
++#include <stdlib.h>
++#ifdef __MINGW32__
++#include <io.h>
++#define mktemp _mktemp
++#else
+ #include <pwd.h>
++#endif
+ 
+ #ifndef lint
+ static char SccsId[] = "%W% %G%";
+@@ -205,7 +211,6 @@
+ {
+     static char fbuf[ 500 ];
+     extern char *getenv();
+-    extern struct passwd *getpwnam();
+ 
+     char *ptr, c;
+ 
+@@ -220,6 +225,7 @@
+ 		return fn;
+ 	    }
+ 	}
++#ifndef __MINGW32__
+ 	else {
+ 	    struct passwd *pwd;
+ 
+@@ -237,6 +243,7 @@
+ 	    }
+ 	    (void)strcpy(fbuf, pwd->pw_dir);
+ 	}
++#endif
+ 	(void)strcat(fbuf, fn);
+ 	fn = fbuf;
+     }
+diff -u -r fools-src.org/Vector.c fools-src/Vector.c
+--- fools-src.org/Vector.c	1991-10-17 03:45:31.000000000 +0900
++++ fools-src/Vector.c	2021-04-05 11:24:35.437472600 +0900
+@@ -13,6 +13,7 @@
+ 
+ #include "fools.h"
+ #include "utils.h"
++#include <stdlib.h>
+ 
+ #ifndef lint
+ static char SccsId[] = "@(#)Vector.c	1.6 4/23/90";
