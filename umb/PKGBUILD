@@ -1,0 +1,39 @@
+_realname=umb
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=3.2
+pkgrel=1
+pkgdesc="A small portable Scheme interpreter that is R4RS conformant."
+arch=('any')
+url="https://www.cs.umb.edu/~wrc/bio.html"
+license=('unknown')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "make")
+source=("http://www.cs.umb.edu/~wrc/scheme/umb-scheme-3.2.tar.gz"
+        "umb-mingw.patch")
+noextract=("umb-scheme-3.2.tar.gz")
+sha256sums=('b5e174ea643b5aea4f3dbcf3c2b2dea01450c34bc8e8a7019f358102513a646f'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}
+  tar xzf umb-scheme-3.2.tar.gz --exclude=*RCS
+  cd ${srcdir}/scheme-3.2
+  patch -p1 -i ${srcdir}/umb-mingw.patch
+  sed -n '/Copyright/,/Tran/p' scheme.1 >LICENSE
+}
+
+build() {
+  cd ${srcdir}/scheme-3.2
+  make program=umbscheme.exe
+}
+
+package() {
+  cd ${srcdir}/scheme-3.2
+  install -s -D umbscheme.exe      ${pkgdir}${MINGW_PREFIX}/bin/umbscheme.exe
+  install -D scheme.1              ${pkgdir}${MINGW_PREFIX}/share/man/umbscheme.1
+  install -d                       ${pkgdir}${MINGW_PREFIX}/share/umb/slib
+  install prelude.scheme           ${pkgdir}${MINGW_PREFIX}/share/umb/
+  install SLIB-for-umb-scheme.init ${pkgdir}${MINGW_PREFIX}/share/umb/
+  install slib/*                   ${pkgdir}${MINGW_PREFIX}/share/umb/slib
+}

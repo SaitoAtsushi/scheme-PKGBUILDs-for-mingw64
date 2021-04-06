@@ -1,0 +1,186 @@
+diff -u -r scheme-3.2.org/architecture.c scheme-3.2/architecture.c
+--- scheme-3.2.org/architecture.c	1996-01-22 07:15:47.000000000 +0900
++++ scheme-3.2/architecture.c	2021-04-06 16:12:07.769730800 +0900
+@@ -94,8 +94,8 @@
+ {
+ 	if (Heap[0] == NULL && Heap[1] == NULL )
+ 	{
+-		Heap[0] = (Byte *)malloc( (unsigned) (size+ALIGNMENT));
+-		Heap[1] = (Byte *)malloc( (unsigned) (size+ALIGNMENT));
++		Heap[0] = (Byte *)malloc( (size_t) (size+ALIGNMENT));
++		Heap[1] = (Byte *)malloc( (size_t) (size+ALIGNMENT));
+ 	}
+ 
+ 	if ( Heap[0] == NULL || Heap[1] == NULL )
+@@ -189,8 +189,8 @@
+ 
+ 		new_heap[0] = NULL;
+ 		new_heap[1] = NULL;
+-		new_heap[0] = (Byte *) malloc((unsigned) Next_Heapsize);
+-		new_heap[1] = (Byte *) malloc((unsigned) Next_Heapsize);
++		new_heap[0] = (Byte *) malloc((size_t) Next_Heapsize);
++		new_heap[1] = (Byte *) malloc((size_t) Next_Heapsize);
+ 
+ 		if ( new_heap[0] == NULL || new_heap[1] == NULL )
+ 		{
+diff -u -r scheme-3.2.org/Makefile scheme-3.2/Makefile
+--- scheme-3.2.org/Makefile	1996-01-22 07:15:47.000000000 +0900
++++ scheme-3.2/Makefile	2021-04-06 16:55:00.431298400 +0900
+@@ -1,6 +1,6 @@
+ # Makefile for the UMB Scheme interpreter.
+ CC = gcc
+-CFLAGS =  -g -O   -pedantic -Wall
++CFLAGS =  -g -O -pedantic -Wall -Wno-misleading-indentation -Wno-unused-but-set-variable
+ 
+ #CC = cc
+ #CFLAGS = -O 
+@@ -10,7 +10,7 @@
+ objects = object.o primitive.o steering.o debug.o\
+ 	  io.o compiler.o eval.o architecture.o number.o\
+ 	  fixnum.o bignum.o rational.o real.o complex.o
+-libraries = -lm
++libraries = -lm -lshlwapi
+ program = scheme
+ 
+ .PHONY:		default tags print
+diff -u -r scheme-3.2.org/portable.h scheme-3.2/portable.h
+--- scheme-3.2.org/portable.h	1996-01-22 07:15:51.000000000 +0900
++++ scheme-3.2/portable.h	2021-04-06 16:15:22.901598900 +0900
+@@ -35,6 +35,7 @@
+ */
+ 
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <ctype.h>
+ #include <errno.h>
+ #include <string.h>
+@@ -63,7 +64,7 @@
+ #if defined(__alpha__)
+ typedef long int Integral_Pointer;
+ #else
+-typedef int Integral_Pointer;
++typedef intptr_t Integral_Pointer;
+ #endif
+ 
+ 
+@@ -80,16 +81,6 @@
+ #endif
+ 
+ 
+-/* The following declarations ought not to be necessary for C environments
+-   that support the ANSI C Standard. */
+-
+-extern void * malloc( /* size_t size */ );
+-extern void   free( /* char *ptr */ );
+-extern char * getenv( /* const char *name */ );
+-extern int    system( /* const char command */ );
+-extern void   exit( /* int status */ );
+-extern int    abs( /* int x */ );
+-
+ /* IF YOUR ENVIRONMENT HAS (any standard ANSI C library ought to have)
+    a float.h defns file then replace the definition of DBL_MIN with
+    an #include <float.h>                                                 */
+diff -u -r scheme-3.2.org/prelude.scheme scheme-3.2/prelude.scheme
+--- scheme-3.2.org/prelude.scheme	1996-01-22 07:15:51.000000000 +0900
++++ scheme-3.2/prelude.scheme	2021-04-06 17:33:59.684544600 +0900
+@@ -708,7 +708,7 @@
+ ; 
+ ; Comment this out if you don't want to use SLIB
+ 
+-(load "/usr/local/lib/scheme/SLIB-for-umb-scheme.init")
++(load (string-append (module-path) "/../share/umb/SLIB-for-umb-scheme.init"))
+ 
+ ; MAINTENANCE PROCEDURES
+ 
+diff -u -r scheme-3.2.org/primitive.c scheme-3.2/primitive.c
+--- scheme-3.2.org/primitive.c	1996-01-22 07:15:51.000000000 +0900
++++ scheme-3.2/primitive.c	2021-04-06 17:31:19.855970800 +0900
+@@ -1881,6 +1881,23 @@
+               Display_Error("Too many arguments for eval",Expression_Register);
+         }
+ }
++
++#ifdef __MINGW32__
++#include <stdint.h>
++uint32_t GetModuleFileNameA(void *hModule, char *lpFilename, uint32_t nSize);
++int PathRemoveFileSpecA(char *pszPath);
++
++Private void Module_Path()
++{
++	char buf[_MAX_PATH] = "";
++	uint32_t size = GetModuleFileNameA(NULL, buf, sizeof(buf));
++	if(size == sizeof(buf) || size == 0) Display_Error("Failure to get module filename.", Expression_Register);
++	PathRemoveFileSpecA(buf);
++	Make_String(strlen(buf));	/* uninitialized string in Value_Reg */
++	strcpy(Get_String_Value(Value_Register), buf);
++}
++#endif
++
+ 
+ /* Associate Scheme symbols with all those C procedures, for all the
+    essential procedures except numbers. */
+@@ -2237,4 +2254,9 @@
+ 
+ 	Make_Primitive("arg-stack-ptr" , Get_Arg_Stack_Ptr, 0, 
+ 	    The_Undefined_Type, The_Undefined_Type, The_Undefined_Type);
++
++#ifdef __MINGW32__
++	Make_Primitive("module-path" , Module_Path, 0, 
++	    The_Undefined_Type, The_Undefined_Type, The_Undefined_Type);
++#endif
+ }
+diff -u -r scheme-3.2.org/SLIB-for-umb-scheme.init scheme-3.2/SLIB-for-umb-scheme.init
+--- scheme-3.2.org/SLIB-for-umb-scheme.init	1996-01-22 07:15:47.000000000 +0900
++++ scheme-3.2/SLIB-for-umb-scheme.init	2021-04-06 18:16:07.936139800 +0900
+@@ -55,7 +55,7 @@
+ 	  ;; Use this path if your scheme does not support GETENV
+ 	  ;; or if SCHEME_LIBRARY_PATH is not set.
+ 	  (case (software-type)
+-	    ((UNIX) "/usr/local/lib/slib/")
++	    ((UNIX) (string-append (module-path) "/../share/umb/slib/"))
+ 	    ((VMS) "lib$scheme:")
+ 	    ((MS-DOS) "C:\\SLIB\\")
+ 	    (else "")))))
+diff -u -r scheme-3.2.org/steering.c scheme-3.2/steering.c
+--- scheme-3.2.org/steering.c	1996-01-22 07:15:53.000000000 +0900
++++ scheme-3.2/steering.c	2021-04-06 16:58:23.786424100 +0900
+@@ -62,7 +62,11 @@
+ 
+ #define TOP_LEVEL_PROMPT "\n==> "
+ 
++#ifdef __MINGW32__
++#define STANDARD_PRELUDE_PATHNAME make_prelude_path()
++#else
+ #define STANDARD_PRELUDE_PATHNAME "/usr/local/lib/scheme/prelude.scheme"
++#endif
+ 
+ Private String OPENING  =
+ "Welcome to UMB Scheme, version      Copyright (c) 1988,1996 William R Campbell.\n\
+@@ -72,10 +76,26 @@
+ 
+ Private String Rev = "$Revision: 3.2 $";
+ 
++#ifdef __MINGW32__
++#include <stdint.h>
++uint32_t GetModuleFileNameA(void *hModule, char *lpFilename, uint32_t nSize);
++int PathRemoveFileSpecA(char *pszPath);
++
++char *make_prelude_path(void)
++{
++	static char buf[_MAX_PATH] = "";
++	uint32_t size = GetModuleFileNameA(NULL, buf, sizeof(buf));
++	if(size == sizeof(buf) || size == 0) return NULL;
++	PathRemoveFileSpecA(buf);
++	strcat(buf, "/../share/umb/prelude.scheme");
++	return buf;
++}
++#endif
++
+ Private	int	Argc;
+ Private	char	**Argv;
+ 
+-Public void main( argc , argv )
++Public int main( argc , argv )
+ 	int	argc;
+ 	char	*argv[];
+ {
