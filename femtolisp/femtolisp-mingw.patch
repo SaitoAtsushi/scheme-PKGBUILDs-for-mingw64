@@ -1,0 +1,469 @@
+diff --git a/builtins.c b/builtins.c
+index 8cbb156..0a6551e 100644
+--- a/builtins.c
++++ b/builtins.c
+@@ -4,6 +4,7 @@
+ 
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <string.h>
+ #include <setjmp.h>
+ #include <stdarg.h>
+@@ -324,6 +325,7 @@ static value_t fl_time_string(value_t *args, uint32_t nargs)
+     return string_from_cstr(buf);
+ }
+ 
++#ifndef _WIN32
+ static value_t fl_time_fromstring(value_t *args, uint32_t nargs)
+ {
+     argcount("time.fromstring", nargs, 1);
+@@ -334,6 +336,7 @@ static value_t fl_time_fromstring(value_t *args, uint32_t nargs)
+         return fixnum(it);
+     return mk_double(t);
+ }
++#endif
+ 
+ static value_t fl_path_cwd(value_t *args, uint32_t nargs)
+ {
+@@ -382,6 +385,8 @@ static value_t fl_os_setenv(value_t *args, uint32_t nargs)
+     if (args[1] == FL_F) {
+ #ifdef LINUX
+         result = unsetenv(name);
++#elif defined(_WIN32)
++        result = _putenv_s(name, "");
+ #else
+         (void)unsetenv(name);
+         result = 0;
+@@ -389,7 +394,11 @@ static value_t fl_os_setenv(value_t *args, uint32_t nargs)
+     }
+     else {
+         char *val = tostring(args[1], "os.setenv");
++#ifdef _WIN32
++        result = _putenv_s(name, val);
++#else
+         result = setenv(name, val, 1);
++#endif
+     }
+     if (result != 0)
+         lerror(ArgError, "os.setenv: invalid environment variable");
+@@ -485,7 +494,9 @@ static builtinspec_t builtin_info[] = {
+ 
+     { "time.now", fl_time_now },
+     { "time.string", fl_time_string },
++#ifndef _WIN32
+     { "time.fromstring", fl_time_fromstring },
++#endif
+ 
+     { "rand", fl_rand },
+     { "rand.uint32", fl_rand32 },
+diff --git a/cvalues.c b/cvalues.c
+index df402de..4ef614c 100644
+--- a/cvalues.c
++++ b/cvalues.c
+@@ -1248,7 +1248,7 @@ static int num_to_ptr(value_t a, fixnum_t *pi, numerictype_t *pt, void **pp)
+ */
+ int numeric_compare(value_t a, value_t b, int eq, int eqnans, char *fname)
+ {
+-    int_t ai, bi;
++    fixnum_t ai, bi;
+     numerictype_t ta, tb;
+     void *aptr, *bptr;
+ 
+@@ -1282,7 +1282,7 @@ static void DivideByZeroError(void)
+ static value_t fl_div2(value_t a, value_t b)
+ {
+     double da, db;
+-    int_t ai, bi;
++    fixnum_t ai, bi;
+     numerictype_t ta, tb;
+     void *aptr, *bptr;
+ 
+@@ -1306,7 +1306,7 @@ static value_t fl_div2(value_t a, value_t b)
+ 
+ static value_t fl_idiv2(value_t a, value_t b)
+ {
+-    int_t ai, bi;
++    fixnum_t ai, bi;
+     numerictype_t ta, tb;
+     void *aptr, *bptr;
+     int64_t a64, b64;
+@@ -1350,7 +1350,7 @@ static value_t fl_idiv2(value_t a, value_t b)
+ 
+ static value_t fl_bitwise_op(value_t a, value_t b, int opcode, char *fname)
+ {
+-    int_t ai, bi;
++    fixnum_t ai, bi;
+     numerictype_t ta, tb, itmp;
+     void *aptr=NULL, *bptr=NULL, *ptmp;
+     int64_t b64;
+diff --git a/equalhash.c b/equalhash.c
+index 70fb03d..21850f8 100644
+--- a/equalhash.c
++++ b/equalhash.c
+@@ -1,5 +1,6 @@
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <string.h>
+ #include <assert.h>
+ #include <limits.h>
+diff --git a/flisp.c b/flisp.c
+index 08f5c4b..bb63b55 100644
+--- a/flisp.c
++++ b/flisp.c
+@@ -106,7 +106,7 @@ static value_t tsym, Tsym, fsym, Fsym, booleansym, nullsym, evalsym, fnsym;
+ static value_t nulsym, alarmsym, backspacesym, tabsym, linefeedsym, newlinesym;
+ static value_t vtabsym, pagesym, returnsym, escsym, spacesym, deletesym;
+ 
+-static value_t apply_cl(uint32_t nargs);
++static value_t apply_cl(uintptr_t nargs);
+ static value_t *alloc_words(int n);
+ static value_t relocate(value_t v);
+ 
+@@ -931,7 +931,7 @@ static uint32_t process_keys(value_t kwtable,
+   - allocate vararg array
+   - push closed env, set up new environment
+ */
+-static value_t apply_cl(uint32_t nargs)
++static value_t apply_cl(uintptr_t nargs)
+ {
+     VM_LABELS;
+     VM_APPLY_LABELS;
+diff --git a/flisp.h b/flisp.h
+index 8c069b3..15fb12b 100644
+--- a/flisp.h
++++ b/flisp.h
+@@ -4,8 +4,8 @@
+ #include <setjmp.h>
+ #include <stdint.h>
+ 
+-typedef uptrint_t value_t;
+-typedef int_t fixnum_t;
++typedef uint64_t value_t;
++typedef intptr_t fixnum_t;
+ #ifdef BITS64
+ #define T_FIXNUM T_INT64
+ #else
+diff --git a/flmain.c b/flmain.c
+index 50c650b..f13ab73 100644
+--- a/flmain.c
++++ b/flmain.c
+@@ -1,4 +1,6 @@
++#include <stdio.h>
+ #include <stdlib.h>
++#include <stdint.h>
+ #include <string.h>
+ #include <assert.h>
+ #include "llt.h"
+@@ -22,7 +24,7 @@ extern value_t fl_file(value_t *args, uint32_t nargs);
+ 
+ int main(int argc, char *argv[])
+ {
+-    char fname_buf[1024];
++    char fname_buf[_MAX_PATH];
+ 
+     fl_init(512*1024);
+ 
+@@ -36,7 +38,7 @@ int main(int argc, char *argv[])
+         strcat(fname_buf, exedir);
+         strcat(fname_buf, PATHSEPSTRING);
+     }
+-    strcat(fname_buf, "flisp.boot");
++    strcat(fname_buf, "../share/femtolisp/flisp.boot");
+ #endif
+ 
+     value_t args[2];
+diff --git a/iostream.c b/iostream.c
+index 9f0d3f8..140ad3a 100644
+--- a/iostream.c
++++ b/iostream.c
+@@ -1,5 +1,6 @@
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <stdarg.h>
+ #include <string.h>
+ #include <assert.h>
+diff --git a/llt/bitvector-ops.c b/llt/bitvector-ops.c
+index e3afef3..a5ca6d2 100644
+--- a/llt/bitvector-ops.c
++++ b/llt/bitvector-ops.c
+@@ -1,4 +1,5 @@
+ #include <stdlib.h>
++#include <stdint.h>
+ #include <assert.h>
+ #include <string.h>
+ 
+@@ -7,8 +8,10 @@
+ 
+ #ifdef WIN32
+ #include <malloc.h>
++#ifndef __MINGW32__
+ #define alloca _alloca
+ #endif
++#endif
+ 
+ // greater than this # of words we use malloc instead of alloca
+ #define MALLOC_CUTOFF 2000
+diff --git a/llt/bitvector.c b/llt/bitvector.c
+index 11c3e9f..d92e498 100644
+--- a/llt/bitvector.c
++++ b/llt/bitvector.c
+@@ -30,6 +30,7 @@
+ */
+ 
+ #include <stdlib.h>
++#include <stdint.h>
+ #include <assert.h>
+ #include <string.h>
+ 
+diff --git a/llt/dtypes.h b/llt/dtypes.h
+index 1bab667..33f3232 100644
+--- a/llt/dtypes.h
++++ b/llt/dtypes.h
+@@ -26,7 +26,9 @@
+ #elif defined(__FreeBSD__)
+ #  define FREEBSD
+ #elif defined(_WIN32)
+-#  define WIN32
++#  ifndef WIN32
++#    define WIN32
++#  endif
+ #else
+ #  error "unknown platform"
+ #endif
+@@ -130,7 +132,7 @@ typedef unsigned char u_int8_t;
+ typedef unsigned short u_int16_t;
+ typedef unsigned int u_int32_t;
+ #ifdef BITS64
+-typedef unsigned long u_int64_t;
++typedef uintptr_t u_int64_t;
+ #else
+ typedef unsigned long long u_int64_t;
+ #endif
+@@ -146,7 +148,7 @@ typedef int int32_t;
+ #ifdef BITS64
+ #define TOP_BIT 0x8000000000000000
+ #define NBITS 64
+-typedef unsigned long uint_t;  // preferred int type on platform
++typedef uintptr_t uint_t;  // preferred int type on platform
+ typedef long int_t;
+ typedef int64_t offset_t;
+ typedef u_int64_t index_t;
+@@ -164,10 +166,16 @@ typedef u_int32_t u_ptrint_t;
+ #endif
+ 
+ typedef u_int8_t  uint8_t;
++#ifdef UINT16_MAX
+ typedef u_int16_t uint16_t;
++#endif
++#ifdef UINT32_MAX
+ typedef u_int32_t uint32_t;
++#endif
++#ifndef UINT64_MAX
+ typedef u_int64_t uint64_t;
+-typedef u_ptrint_t uptrint_t;
++#endif
++typedef uintptr_t uptrint_t;
+ 
+ #define LLT_ALIGN(x, sz) (((x) + (sz-1)) & (-sz))
+ 
+diff --git a/llt/dump.c b/llt/dump.c
+index 27e8524..175383a 100644
+--- a/llt/dump.c
++++ b/llt/dump.c
+@@ -1,4 +1,6 @@
++#include <stdio.h>
+ #include <stdlib.h>
++#include <stdint.h>
+ #include "dtypes.h"
+ #include "ios.h"
+ #include "utils.h"
+diff --git a/llt/hashing.c b/llt/hashing.c
+index f0a712a..6ee4370 100644
+--- a/llt/hashing.c
++++ b/llt/hashing.c
+@@ -3,6 +3,7 @@
+ */
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <math.h>
+ #include "dtypes.h"
+ #include "utils.h"
+diff --git a/llt/int2str.c b/llt/int2str.c
+index 9a8084e..5de2e3d 100644
+--- a/llt/int2str.c
++++ b/llt/int2str.c
+@@ -1,4 +1,5 @@
+ #include <stdlib.h>
++#include <stdint.h>
+ #include "dtypes.h"
+ #include "utils.h"
+ 
+diff --git a/llt/ios.c b/llt/ios.c
+index 1084654..5a80f67 100644
+--- a/llt/ios.c
++++ b/llt/ios.c
+@@ -1,4 +1,5 @@
+ #include <stdlib.h>
++#include <stdint.h>
+ #include <stdarg.h>
+ #include <string.h>
+ #include <assert.h>
+@@ -14,6 +15,10 @@
+ #include <io.h>
+ #include <fcntl.h>
+ #define fileno _fileno
++#define S_IRUSR 0
++#define S_IWUSR 0
++#define S_IRGRP 0
++#define S_IROTH 0
+ #else
+ #include <unistd.h>
+ #include <sys/time.h>
+@@ -31,7 +36,7 @@
+ 
+ /* OS-level primitive wrappers */
+ 
+-#if defined(MACOSX)
++#if defined(MACOSX) || defined(_WIN32)
+ void *memrchr(const void *s, int c, size_t n)
+ {
+     const unsigned char *src = s + n;
+diff --git a/llt/lltinit.c b/llt/lltinit.c
+index ea534d6..7264f3e 100644
+--- a/llt/lltinit.c
++++ b/llt/lltinit.c
+@@ -1,5 +1,6 @@
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <stdarg.h>
+ #include <math.h>
+ #include <locale.h>
+diff --git a/llt/random.c b/llt/random.c
+index c086f79..4847706 100644
+--- a/llt/random.c
++++ b/llt/random.c
+@@ -3,6 +3,7 @@
+ */
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <math.h>
+ #include "dtypes.h"
+ #include "ieee754.h"
+diff --git a/llt/socket.c b/llt/socket.c
+index 3984fb0..7cfb1cc 100644
+--- a/llt/socket.c
++++ b/llt/socket.c
+@@ -31,13 +31,31 @@ int mysocket(int domain, int type, int protocol)
+ 
+ void set_nonblock(int socket, int yes)
+ {
++#ifdef __MINGW32__
++    u_long flags;
++#else
+     int flags;
+     flags = fcntl(socket,F_GETFL,0);
+     assert(flags != -1);
++#endif
+     if (yes)
++#ifdef __MINGW32__
++    {
++        flags = 1;
++        ioctlsocket(socket, FIONBIO, &flags);
++    }
++#else
+         fcntl(socket, F_SETFL, flags | O_NONBLOCK);
++#endif
+     else
++#ifdef __MINGW32__
++    {
++        flags = 0;
++        ioctlsocket(socket, FIONBIO, &flags);
++    }
++#else
+         fcntl(socket, F_SETFL, flags & ~O_NONBLOCK);
++#endif
+ }
+ 
+ #ifdef WIN32
+@@ -137,7 +155,7 @@ int connect_to_host(char *hostname, short portno)
+     if (sockfd < 0) {
+         return -1;
+     }
+-    (void)setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
++    (void)setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (void*)&yes, sizeof(int));
+     memset((char*)&host_addr, 0, sizeof(host_addr));
+     host_addr.sin_family = host_info->h_addrtype;
+     memcpy((char*)&host_addr.sin_addr, host_info->h_addr,
+@@ -162,7 +180,7 @@ int connect_to_addr(struct sockaddr_in *host_addr)
+     if (sockfd < 0) {
+         return -1;
+     }
+-    (void)setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
++    (void)setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (void*)&yes, sizeof(int));
+ 
+     if (connect(sockfd, (struct sockaddr*)host_addr,
+                 sizeof(struct sockaddr_in)) != 0) {
+diff --git a/llt/socket.h b/llt/socket.h
+index 559b6be..6868ac2 100644
+--- a/llt/socket.h
++++ b/llt/socket.h
+@@ -8,8 +8,8 @@
+ #include <netdb.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+-#include <fcntl.h>
+ #endif
++#include <fcntl.h>
+ 
+ int open_tcp_port(short portno);
+ int open_any_tcp_port(short *portno);
+diff --git a/llt/utf8.c b/llt/utf8.c
+index b8b0456..b787949 100644
+--- a/llt/utf8.c
++++ b/llt/utf8.c
+@@ -15,6 +15,7 @@
+ #define _XOPEN_SOURCE 700
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <string.h>
+ #include <stdarg.h>
+ #include <wchar.h>
+@@ -452,7 +453,7 @@ int u8_escape_wchar(char *buf, size_t sz, u_int32_t ch)
+     else if (ch == L'\\')
+         return buf_put2c(buf, "\\\\");
+     else if (ch < 32 || ch == 0x7f)
+-        return snprintf(buf, sz, "\\x%.2hhx", (unsigned char)ch);
++        return snprintf(buf, sz, "\\x%.2x", (unsigned char)ch);
+     else if (ch > 0xFFFF)
+         return snprintf(buf, sz, "\\U%.8x", (u_int32_t)ch);
+     else if (ch >= 0x80)
+diff --git a/string.c b/string.c
+index 387cf14..77508f6 100644
+--- a/string.c
++++ b/string.c
+@@ -3,6 +3,7 @@
+ */
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <string.h>
+ #include <setjmp.h>
+ #include <stdarg.h>
+diff --git a/table.c b/table.c
+index a3638c1..68a09f8 100644
+--- a/table.c
++++ b/table.c
+@@ -1,5 +1,6 @@
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <stdint.h>
+ #include <stdarg.h>
+ #include <string.h>
+ #include <assert.h>

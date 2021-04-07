@@ -1,0 +1,32 @@
+_realname=femtolisp
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=20190607
+pkgrel=1
+pkgdesc="A lightweight, robust, scheme-like lisp implementation."
+arch=('any')
+url="https://github.com/JeffBezanson/femtolisp"
+license=('BSD-3-clause')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "make")
+source=("femtolisp-ec76010.tar.gz::https://codeload.github.com/JeffBezanson/femtolisp/tar.gz/ec7601076a976f845bc05ad6bd3ed5b8cde58a97"
+        "femtolisp-mingw.patch")
+sha256sums=('a3a50cd092eb0b9bc65fae43b802e8a1cfbd3dd3b318ffc81c221adfe5f2a30e'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/femtolisp-ec7601076a976f845bc05ad6bd3ed5b8cde58a97
+  patch -p1 -i ${srcdir}/femtolisp-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/femtolisp-ec7601076a976f845bc05ad6bd3ed5b8cde58a97
+  make EXENAME=flisp.exe release
+}
+
+package() {
+  cd ${srcdir}/femtolisp-ec7601076a976f845bc05ad6bd3ed5b8cde58a97
+  install -s -D flisp.exe ${pkgdir}${MINGW_PREFIX}/bin/flisp.exe
+  install -D flisp.boot   ${pkgdir}${MINGW_PREFIX}/share/femtolisp/flisp.boot
+  install -D LICENSE      ${pkgdir}${MINGW_PREFIX}/share/licenses/femtolisp/LICENSE
+}
