@@ -1,7 +1,7 @@
 _realname=OtusLisp
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=2.1.2
+pkgver=2.2
 pkgrel=1
 pkgdesc="Otus Lisp (Ol in short) is a purely* functional dialect of Lisp."
 arch=('any')
@@ -10,8 +10,8 @@ license=('GPL3' 'MIT')
 depends=()
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-make" "${MINGW_PACKAGE_PREFIX}-sed")
 options=('staticlibs')
-source=("ol-2.1.2.tar.gz::https://codeload.github.com/yuriy-chumak/ol/tar.gz/2.1.2")
-sha256sums=('44394e1d06cefb6a80aa2eed9936458345e3ac882b460d4da769a9dbf06f96bd')
+source=("ol-2.2.tar.gz::https://codeload.github.com/yuriy-chumak/ol/tar.gz/2.2")
+sha256sums=('a16447849508bf39c24611b35277399531e4ceedb5ee5d4e31828d569fca8e04')
 
 prepare() {
   cd ${srcdir}/ol-${pkgver}
