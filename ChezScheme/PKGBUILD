@@ -1,6 +1,6 @@
 pkgbase=chez
 pkgname=("${MINGW_PACKAGE_PREFIX}-chez")
-pkgver=9.5.5.r581
+pkgver=9.5.6.r633
 pkgrel=1
 pkgdesc="A implementation for the Scheme programming language."
 arch=('any')
@@ -13,13 +13,13 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-gcc"
              "coreutils"
              "tar"
              "make")
-source=("ChezSchme-9096a8e.tar.gz::https://codeload.github.com/cisco/ChezScheme/tar.gz/9096a8edb5842bfbaaeb9b93cf3871a8b2c4e447")
-noextract=("ChezSchme-9096a8e.tar.gz")
-sha256sums=('e093ef1d5671e8056e2ae0cd5405967780ae70c9ee25d219a16ee3daf00b4148')
+source=("ChezSchme-eb4ddce.tar.gz::https://codeload.github.com/cisco/ChezScheme/tar.gz/eb4ddce8d235f5b56ddb1fd687a9e44661c9004a")
+noextract=("ChezSchme-eb4ddce.tar.gz")
+sha256sums=('2ee9e5fba58ffdd1fa85ed63da76b3ed29fa9fd2fe97aac3f6ec5b38e5a64a80')
 
 prepare() {
-  tar xzf ChezSchme-9096a8e.tar.gz --exclude "csug" --exclude "stex" --exclude "wininstall"
-  cd ${srcdir}/ChezScheme-9096a8edb5842bfbaaeb9b93cf3871a8b2c4e447
+  tar xzf ChezSchme-eb4ddce.tar.gz --exclude "csug" --exclude "stex" --exclude "wininstall"
+  cd ${srcdir}/ChezScheme-eb4ddce8d235f5b56ddb1fd687a9e44661c9004a
 patch -p1 << 'EOS'
 diff -u -r a/configure b/configure
 --- a/configure	2019-08-12 09:17:50.000000000 +0900
@@ -36,7 +36,7 @@ EOS
 }
 
 build() {
-  cd ${srcdir}/ChezScheme-9096a8edb5842bfbaaeb9b93cf3871a8b2c4e447
+  cd ${srcdir}/ChezScheme-eb4ddce8d235f5b56ddb1fd687a9e44661c9004a
 
   case "${MSYSTEM}" in
     MINGW64)
@@ -53,6 +53,6 @@ build() {
 }
 
 package() {
-  cd ${srcdir}/ChezScheme-9096a8edb5842bfbaaeb9b93cf3871a8b2c4e447
+  cd ${srcdir}/ChezScheme-eb4ddce8d235f5b56ddb1fd687a9e44661c9004a
   make install TempRoot=${pkgdir}
 }
