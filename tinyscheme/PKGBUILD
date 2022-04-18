@@ -10,14 +10,17 @@ depends=()
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-make")
 source=("http://jaist.dl.sourceforge.net/project/tinyscheme/tinyscheme/tinyscheme-1.42/tinyscheme-1.42.tar.gz"
         "tinyscheme-mingw.patch"
-        "tinyscheme.pc")
+        "tinyscheme.pc"
+        "resource.rc")
 sha256sums=('17b0b1bffd22f3d49d5833e22a120b339039d2cfda0b46d6fc51dd2f01b407ad'
+            'SKIP'
             'SKIP'
             'SKIP')
 
 prepare() {
   cd "${srcdir}/tinyscheme-${pkgver}"
-  patch -p1 -i ${srcdir}/tinyscheme-mingw.patch
+  patch -p1 -i "${srcdir}/tinyscheme-mingw.patch"
+  cp "${srcdir}/resource.rc" "${srcdir}/tinyscheme-${pkgver}"
 }
 
 build() {
@@ -27,7 +30,7 @@ build() {
 
 package() {
   cd "${srcdir}/tinyscheme-${pkgver}"
-  install -D -s "scheme.exe" "${pkgdir}/${MINGW_PREFIX}/bin/tinyscheme.exe"
+  install -D -s "tinyscheme.exe" "${pkgdir}/${MINGW_PREFIX}/bin/tinyscheme.exe"
   install -D -s "libtinyscheme.dll" "${pkgdir}/${MINGW_PREFIX}/bin/libtinyscheme.dll"
   install -D "libtinyscheme.a" "${pkgdir}/${MINGW_PREFIX}/lib/libtinyscheme.a"
   install -D "scheme.h" "${pkgdir}/${MINGW_PREFIX}/include/tinyscheme/scheme.h"
