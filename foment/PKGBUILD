@@ -1,7 +1,7 @@
 _realname=foment
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=0.4.1.r442
+pkgver=0.4.1.r481
 pkgrel=1
 pkgdesc="An implementation of R7RS Scheme. "
 arch=('any')
@@ -9,24 +9,24 @@ url="https://github.com/leftmike/foment"
 license=('MIT')
 depends=()
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "${MINGW_PACKAGE_PREFIX}-make")
-source=("foment-3838be8.tar.gz::https://codeload.github.com/leftmike/foment/tar.gz/3838be87bc78027f3cae93219ed34fb1a17f34b9"
+source=("foment-ee660bc.tar.gz::https://codeload.github.com/leftmike/foment/tar.gz/ee660bcfaac35ec65aade27a103d17e11dd832b8"
         "foment-mingw.patch")
-sha256sums=('65b7af958318213ae3f43564d1e74d86956491ca60c756b388e62b63ea540637'
+sha256sums=('08b97e7c0282a3881fefa4bddd4f84b447aee41f9e89c162528e0f5511cd8b3d'
             'SKIP')
 
 prepare() {
-  cd ${srcdir}/foment-3838be87bc78027f3cae93219ed34fb1a17f34b9
+  cd ${srcdir}/foment-ee660bcfaac35ec65aade27a103d17e11dd832b8
   patch -p1 -i ${srcdir}/foment-mingw.patch
 }
 
 build() {
-  cd ${srcdir}/foment-3838be87bc78027f3cae93219ed34fb1a17f34b9/unix
+  cd ${srcdir}/foment-ee660bcfaac35ec65aade27a103d17e11dd832b8/unix
   mingw32-make debug
   mingw32-make release
   mingw32-make release/foment
 }
 
 package() {
-  cd ${srcdir}/foment-3838be87bc78027f3cae93219ed34fb1a17f34b9
+  cd ${srcdir}/foment-ee660bcfaac35ec65aade27a103d17e11dd832b8
   install -D -s unix/release/foment.exe ${pkgdir}/${MINGW_PREFIX}/bin/foment.exe
 }

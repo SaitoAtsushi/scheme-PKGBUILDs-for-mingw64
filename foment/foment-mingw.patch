@@ -44,7 +44,7 @@ index a45488a..4a1df6b 100644
  	CFLAGS += -DFOMENT_LITTLE_ENDIAN=0
  endif
  
--CFLAGS += -c -Wall -DFOMENT_UNIX
+-CFLAGS += -c -Wall -DFOMENT_UNIX -std=c++2a
 +CFLAGS += -municode -c -Wall -DFOMENT_WINDOWS -DUNICODE -D_UNICODE
 +LDFLAGS += -static -mwindows -municode
  
