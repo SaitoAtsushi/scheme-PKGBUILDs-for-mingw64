@@ -1,6 +1,6 @@
-diff -r -u schemik-1.2.40.0.org/config.h schemik-1.2.40.0/config.h
+diff -u schemik-1.2.40.0.org/config.h schemik-1.2.40.0/config.h
 --- schemik-1.2.40.0.org/config.h	2010-01-29 07:09:17.000000000 +0900
-+++ schemik-1.2.40.0/config.h	2021-03-02 01:15:16.675790900 +0900
++++ schemik-1.2.40.0/config.h	2022-04-19 10:28:28.271821600 +0900
 @@ -1,6 +1,7 @@
  #ifndef CONFIG_H
  #define CONFIG_H
@@ -9,9 +9,9 @@ diff -r -u schemik-1.2.40.0.org/config.h schemik-1.2.40.0/config.h
  #define DUMP_TEXT	1
  #define DUMP_LATEX	2
  
-diff -r -u schemik-1.2.40.0.org/env.c schemik-1.2.40.0/env.c
+diff -u schemik-1.2.40.0.org/env.c schemik-1.2.40.0/env.c
 --- schemik-1.2.40.0.org/env.c	2010-01-29 07:09:17.000000000 +0900
-+++ schemik-1.2.40.0/env.c	2021-03-02 01:34:11.368767000 +0900
++++ schemik-1.2.40.0/env.c	2022-04-19 10:28:28.275797800 +0900
 @@ -79,6 +79,8 @@
  
  static inline void scm_env_add_array(scm_env * env, scm_value * key, scm_value * value)
@@ -33,9 +33,9 @@ diff -r -u schemik-1.2.40.0.org/env.c schemik-1.2.40.0/env.c
  		}
  
  		env->capacity = new_capacity;
-diff -r -u schemik-1.2.40.0.org/functions.c schemik-1.2.40.0/functions.c
+diff -u schemik-1.2.40.0.org/functions.c schemik-1.2.40.0/functions.c
 --- schemik-1.2.40.0.org/functions.c	2010-01-29 07:09:17.000000000 +0900
-+++ schemik-1.2.40.0/functions.c	2021-03-02 01:19:51.244788100 +0900
++++ schemik-1.2.40.0/functions.c	2022-04-19 10:28:28.278798200 +0900
 @@ -30,7 +30,9 @@
  #include <math.h>
  #include <ctype.h>
@@ -59,9 +59,9 @@ diff -r -u schemik-1.2.40.0.org/functions.c schemik-1.2.40.0/functions.c
  	return result;
  }
 +#endif
-diff -r -u schemik-1.2.40.0.org/functions.def schemik-1.2.40.0/functions.def
+diff -u schemik-1.2.40.0.org/functions.def schemik-1.2.40.0/functions.def
 --- schemik-1.2.40.0.org/functions.def	2010-01-29 07:09:17.000000000 +0900
-+++ schemik-1.2.40.0/functions.def	2021-03-02 01:20:39.205764500 +0900
++++ schemik-1.2.40.0/functions.def	2022-04-19 10:28:28.281812100 +0900
 @@ -91,6 +91,8 @@
  REGISTER_SYNC_FUNC("newline", newline, SCM_SYNC_WAIT)
  REGISTER_SYNC_FUNC("display-dbg", display_dbg, SCM_SYNC_WAIT)
@@ -71,43 +71,73 @@ diff -r -u schemik-1.2.40.0.org/functions.def schemik-1.2.40.0/functions.def
  REGISTER_SYNC_FUNC("ext:shell*", shell_call, SCM_SYNC_WAIT)
  REGISTER_FUNC("ext:shell-unsync*", shell_call)
 +#endif
-diff -r -u schemik-1.2.40.0.org/Makefile schemik-1.2.40.0/Makefile
+diff -u schemik-1.2.40.0.org/Makefile schemik-1.2.40.0/Makefile
 --- schemik-1.2.40.0.org/Makefile	2010-01-29 07:09:17.000000000 +0900
-+++ schemik-1.2.40.0/Makefile	2021-03-02 01:53:26.115296500 +0900
-@@ -4,7 +4,7 @@
++++ schemik-1.2.40.0/Makefile	2022-04-19 10:42:15.458497600 +0900
+@@ -1,10 +1,10 @@
+-COMP_ARGS=-g -Wall -Winline -O2 -std=c99 -pedantic -finline-limit=200000 --param large-function-growth=200000 --param inline-unit-growth=10000 -D_XOPEN_SOURCE=500
++COMP_ARGS=-g -Wall -O2 -std=c99 -pedantic -finline-limit=200000 --param large-function-growth=200000 --param inline-unit-growth=10000 -D_XOPEN_SOURCE=500
+ COMP_ARGS+=${PROFILE_ARGS}
+ 
  STATIC_NAME="schemik-i686-linux-static"
  
- all: stack_eval.o types.o functions.o env.o initial_env.o schemik.c rt.o int_funcs.o readline_wrapper.o config.h thread_pool.o parser.o lexer.o errors.o
+-all: stack_eval.o types.o functions.o env.o initial_env.o schemik.c rt.o int_funcs.o readline_wrapper.o config.h thread_pool.o parser.o lexer.o errors.o
 -	$(CC) ${COMP_ARGS} `pkg-config --libs --cflags glib-2.0` -o schemik stack_eval.o types.o int_funcs.o functions.o env.o initial_env.o rt.o readline_wrapper.o thread_pool.o parser.o lexer.o errors.o schemik.c -lgc -lpthread -lreadline -lncurses -lm
-+	$(CC) ${COMP_ARGS} `pkg-config --libs --cflags glib-2.0` -o schemik stack_eval.o types.o int_funcs.o functions.o env.o initial_env.o rt.o readline_wrapper.o thread_pool.o parser.o lexer.o errors.o schemik.c -lgc -lpthread -lreadline -lncurses -lm 
++all: stack_eval.o types.o functions.o env.o initial_env.o schemik.c rt.o int_funcs.o readline_wrapper.o config.h thread_pool.o parser.o lexer.o errors.o resource.o
++	$(CC) ${COMP_ARGS} `pkg-config --libs --cflags glib-2.0` -o schemik stack_eval.o types.o int_funcs.o functions.o env.o initial_env.o rt.o readline_wrapper.o thread_pool.o parser.o lexer.o errors.o resource.o schemik.c -lgc -lpthread -lreadline -lncurses -lm 
  
  stack_eval.o: stack_eval.c eval.h vm.h vm.c stack.c stack.h int_funcs.h functions.h rt.h mutex.h types.h config.h dump_vm.c tm_log.c tm_log.h constants.def
  	$(CC) ${COMP_ARGS} `pkg-config --cflags glib-2.0` -c stack_eval.c
-diff -r -u schemik-1.2.40.0.org/schemik.c schemik-1.2.40.0/schemik.c
+@@ -42,6 +42,8 @@
+ errors.o: errors.h errors.c types.h int_funcs.h
+ 	$(CC) ${COMP_ARGS} `pkg-config --cflags glib-2.0` -c errors.c
+ 
++resource.o: resource.rc scm/base.scm
++	windres resource.rc resource.o
+ 
+ optimal:
+ 	make clean
+diff -u schemik-1.2.40.0.org/schemik.c schemik-1.2.40.0/schemik.c
 --- schemik-1.2.40.0.org/schemik.c	2010-01-29 07:09:17.000000000 +0900
-+++ schemik-1.2.40.0/schemik.c	2021-03-02 01:41:18.614730600 +0900
-@@ -75,9 +75,18 @@
- 		if (code) return code;
++++ schemik-1.2.40.0/schemik.c	2022-04-19 11:05:26.093521300 +0900
+@@ -28,6 +28,13 @@
+ #include <ctype.h>
+ #include <unistd.h>
+ 
++#ifdef __MINGW32__
++__declspec(dllimport) void* __stdcall LoadResource(void*,void*);
++__declspec(dllimport) void* __stdcall FindResourceW(void*,wchar_t*,wchar_t*);
++__declspec(dllimport) void* __stdcall GetModuleHandleA(char*);
++__declspec(dllimport) void* __stdcall LockResource(void*);
++#endif
++
+ #include "types.h"
+ #include "int_funcs.h"
+ #include "rt.h"
+@@ -66,6 +73,12 @@
+ 
+ static char * load_standard_library(char * file_name)
+ {
++#ifdef __MINGW32__
++        void *mod = GetModuleHandleA(NULL);
++        void *info = FindResourceW(mod, L"INIT", L"SOURCE");
++        void *res = LoadResource(mod, info);
++        char *code = LockResource(res);
++#else
+ 	const int READLINK_BUF_SIZE = 1024;
+ 	char * code = NULL;
+ 	char buf[READLINK_BUF_SIZE];
+@@ -89,6 +102,7 @@
+ 		//code = load_file("scm/base.scm");
+ 		code = load_file(buf);
  	}
- 	
-+#ifndef __MINGW32__
- 	int size = readlink("/proc/self/exe", buf, READLINK_BUF_SIZE);
-+#else
-+	extern uint32_t GetModuleFileNameA(void*, char*, uint32_t);
-+	uint32_t size = GetModuleFileNameA(NULL, buf, READLINK_BUF_SIZE);
 +#endif
- 	if (size) {
-+#ifndef __MINGW32__
- 		*strrchr(buf, '/') = '\0';
-+#else
-+		*strrchr(buf, '\\') = '\0';
-+#endif
- 		//strcat(buf, "/../share/schemik/1.2/base.scm");
- 		strcat(buf, "/../share/schemik/1.2/");
- 		strcat(buf, file_name);
-diff -r -u schemik-1.2.40.0.org/SConstruct schemik-1.2.40.0/SConstruct
+ 	return code;
+ }
+ 
+diff -u schemik-1.2.40.0.org/SConstruct schemik-1.2.40.0/SConstruct
 --- schemik-1.2.40.0.org/SConstruct	2010-01-29 07:09:17.000000000 +0900
-+++ schemik-1.2.40.0/SConstruct	2021-03-01 18:48:29.829062400 +0900
++++ schemik-1.2.40.0/SConstruct	2022-04-19 10:28:28.291798700 +0900
 @@ -34,7 +34,7 @@
  
  def requiredLib(conf, lib, header):
@@ -164,9 +194,9 @@ diff -r -u schemik-1.2.40.0.org/SConstruct schemik-1.2.40.0/SConstruct
  	conf.env.Append(CPPDEFINES = '-DUSE_THREAD_POOLING')
  	env['CCFLAGS'].remove('-O2')
  	env.MergeFlags('-O3')
-diff -r -u schemik-1.2.40.0.org/types.h schemik-1.2.40.0/types.h
+diff -u schemik-1.2.40.0.org/types.h schemik-1.2.40.0/types.h
 --- schemik-1.2.40.0.org/types.h	2010-01-29 07:09:17.000000000 +0900
-+++ schemik-1.2.40.0/types.h	2021-03-02 01:48:26.459223100 +0900
++++ schemik-1.2.40.0/types.h	2022-04-19 10:28:28.295798300 +0900
 @@ -30,8 +30,8 @@
  	#define SCM_TYPE(x)	(x->type)
  	#define SCM_INT(x)	(x->value.integer)
