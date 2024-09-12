@@ -1,6 +1,6 @@
 pkgbase=chez
 pkgname=("${MINGW_PACKAGE_PREFIX}-chez")
-pkgver=9.5.6.r633
+pkgver=10.0.0
 pkgrel=1
 pkgdesc="A implementation for the Scheme programming language."
 arch=('any')
@@ -13,30 +13,17 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-gcc"
              "coreutils"
              "tar"
              "make")
-source=("ChezSchme-eb4ddce.tar.gz::https://codeload.github.com/cisco/ChezScheme/tar.gz/eb4ddce8d235f5b56ddb1fd687a9e44661c9004a")
-noextract=("ChezSchme-eb4ddce.tar.gz")
-sha256sums=('2ee9e5fba58ffdd1fa85ed63da76b3ed29fa9fd2fe97aac3f6ec5b38e5a64a80')
+source=("ChezSchme-10.0.0.tar.gz::https://github.com/cisco/ChezScheme/releases/download/v10.0.0/csv10.0.0.tar.gz")
+noextract=("ChezSchme-10.0.0.tar.gz")
+sha256sums=('d37199012b5ed1985c4069d6a87ff18e5e1f5a2df27e402991faf45dc4f2232c')
 
 prepare() {
-  tar xzf ChezSchme-eb4ddce.tar.gz --exclude "csug" --exclude "stex" --exclude "wininstall"
-  cd ${srcdir}/ChezScheme-eb4ddce8d235f5b56ddb1fd687a9e44661c9004a
-patch -p1 << 'EOS'
-diff -u -r a/configure b/configure
---- a/configure	2019-08-12 09:17:50.000000000 +0900
-+++ b/configure	2019-08-14 16:14:14.761517100 +0900
-@@ -475,6 +475,8 @@ cat > $w/c/config.h << END
- #define SCHEME_SCRIPT "$installscriptname"
- #ifndef WIN32
- #define DEFAULT_HEAP_PATH "$installlib/csv%v/%m"
-+#else
-+#define DEFAULT_HEAP_PATH "%x;%x/../../boot/%m;%x/../lib/csv%v/%m"
- #endif
- END
-EOS
+  tar xzf ChezSchme-10.0.0.tar.gz --exclude "csug" --exclude "wininstall"
+  cd ${srcdir}/csv10.0.0
 }
 
 build() {
-  cd ${srcdir}/ChezScheme-eb4ddce8d235f5b56ddb1fd687a9e44661c9004a
+  cd ${srcdir}/csv10.0.0
 
   case "${MSYSTEM}" in
     MINGW64)
@@ -46,13 +33,14 @@ build() {
       machine=ti3nt
     ;;
   esac
-
-  ./configure -m=${machine} --threads --installprefix=${MINGW_PREFIX}
-  (cd ${machine}/c && make -f Mf-${machine} cross=t o=o)
+  
+  ./configure -m=${machine} --threads --installprefix=${MINGW_PREFIX} --installlib=${MINGW_PREFIX}/lib/ --temproot=${pkgdir} CFLAGS+=-D'"DEFAULT_HEAP_PATH=\"%x;%x/../../boot/%m;%x/../lib/csv%v/%m\""'
   make
 }
 
 package() {
-  cd ${srcdir}/ChezScheme-eb4ddce8d235f5b56ddb1fd687a9e44661c9004a
-  make install TempRoot=${pkgdir}
+  cd ${srcdir}/csv10.0.0
+  install -D -t ${pkgdir}/${MINGW_PREFIX}/lib/csv10.0.0/examples ./examples/*
+  install -D -t ${pkgdir}/${MINGW_PREFIX}/lib/csv10.0.0/ta6nt ./boot/ta6nt/*
+  install -D -t ${pkgdir}/${MINGW_PREFIX}/bin ./ta6nt/bin/ta6nt/scheme.exe
 }
