@@ -1,6 +1,6 @@
 pkgbase=mingw-w64-gambit
 pkgname=("${MINGW_PACKAGE_PREFIX}-gambit")
-pkgver=4.9.4
+pkgver=4.9.7
 pkgrel=1
 pkgdesc="A complete, portable, efficient and reliable implementation of the Scheme programming language."
 arch=('any')
@@ -9,17 +9,17 @@ license=('LGPL' 'Apache License 2.0')
 depends=("${MINGW_PACKAGE_PREFIX}-gcc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "make")
 options=('staticlibs' 'purge')
-source=("http://gambitscheme.org/latest/gambit-v4_9_4.tgz")
-sha256sums=('19fb44a65b669234f6c0467cdc3dbe2e2c95a442f38e4638e7d89c90e247bd08')
+source=("https://gambitscheme.org/latest/gambit-v4_9_7.tgz")
+sha256sums=('5243d3d5cc3a82e718601680b12f482594d2914b1a892b8a4c8012bb9d343c22')
 PURGE_TARGETS=(mingw32/bin/gsc-script.bat)
 
 build() {
-  cd ${srcdir}/gambit-${pkgver}
+  cd ${srcdir}/gambit-v4_9_7
   ./configure --enable-targets= --enable-thread-system --enable-single-host --enable-compiler-name=gsc-script --enable-march=native --prefix=${MINGW_PREFIX}
   make INSTFILES_BIN_LINK_GSC=""
 }
 
 package() {
-  cd ${srcdir}/gambit-${pkgver}
+  cd ${srcdir}/gambit-v4_9_7
   make DESTDIR=${pkgdir} install
 }
