@@ -1,7 +1,7 @@
 pkgbase=tinyscheme
 pkgname="${MINGW_PACKAGE_PREFIX}-${pkgbase}"
 pkgver=1.42
-pkgrel=1
+pkgrel=2
 pkgdesc="A lightweight Scheme interpreter that implements as large a subset of R5RS"
 arch=('any')
 url="http://tinyscheme.sourceforge.net/"
@@ -21,6 +21,8 @@ prepare() {
   cd "${srcdir}/tinyscheme-${pkgver}"
   patch -p1 -i "${srcdir}/tinyscheme-mingw.patch"
   cp "${srcdir}/resource.rc" "${srcdir}/tinyscheme-${pkgver}"
+  cp "${srcdir}/tinyscheme-${pkgver}/init.scm" "${srcdir}/tinyscheme-${pkgver}/null-terminated-init.scm"
+  printf '\0' >> "${srcdir}/tinyscheme-${pkgver}/null-terminated-init.scm"
 }
 
 build() {

@@ -1,1 +1,1 @@
-INIT SOURCE DISCARDABLE init.scm
+INIT SOURCE DISCARDABLE null-terminated-init.scm
