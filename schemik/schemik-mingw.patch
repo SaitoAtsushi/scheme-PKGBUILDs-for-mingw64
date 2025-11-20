@@ -76,7 +76,7 @@ diff -u schemik-1.2.40.0.org/Makefile schemik-1.2.40.0/Makefile
 +++ schemik-1.2.40.0/Makefile	2022-04-19 10:42:15.458497600 +0900
 @@ -1,10 +1,10 @@
 -COMP_ARGS=-g -Wall -Winline -O2 -std=c99 -pedantic -finline-limit=200000 --param large-function-growth=200000 --param inline-unit-growth=10000 -D_XOPEN_SOURCE=500
-+COMP_ARGS=-g -Wall -O2 -std=c99 -pedantic -finline-limit=200000 --param large-function-growth=200000 --param inline-unit-growth=10000 -D_XOPEN_SOURCE=500
++COMP_ARGS=-g -Wall -O2 -std=c99 -pedantic -finline-limit=200000 --param large-function-growth=200000 --param inline-unit-growth=10000 -D_XOPEN_SOURCE=500 -Wno-switch -Wno-unused-function -Wno-unused-but-set-variable
  COMP_ARGS+=${PROFILE_ARGS}
  
  STATIC_NAME="schemik-i686-linux-static"
@@ -84,7 +84,7 @@ diff -u schemik-1.2.40.0.org/Makefile schemik-1.2.40.0/Makefile
 -all: stack_eval.o types.o functions.o env.o initial_env.o schemik.c rt.o int_funcs.o readline_wrapper.o config.h thread_pool.o parser.o lexer.o errors.o
 -	$(CC) ${COMP_ARGS} `pkg-config --libs --cflags glib-2.0` -o schemik stack_eval.o types.o int_funcs.o functions.o env.o initial_env.o rt.o readline_wrapper.o thread_pool.o parser.o lexer.o errors.o schemik.c -lgc -lpthread -lreadline -lncurses -lm
 +all: stack_eval.o types.o functions.o env.o initial_env.o schemik.c rt.o int_funcs.o readline_wrapper.o config.h thread_pool.o parser.o lexer.o errors.o resource.o
-+	$(CC) ${COMP_ARGS} `pkg-config --libs --cflags glib-2.0` -o schemik stack_eval.o types.o int_funcs.o functions.o env.o initial_env.o rt.o readline_wrapper.o thread_pool.o parser.o lexer.o errors.o resource.o schemik.c -lgc -lpthread -lreadline -lncurses -lm 
++	$(CC) ${COMP_ARGS} `pkg-config --libs --cflags glib-2.0` -o schemik stack_eval.o types.o int_funcs.o functions.o env.o initial_env.o rt.o readline_wrapper.o thread_pool.o parser.o lexer.o errors.o resource.o schemik.c -static -lgc -lpthread -lreadline -lncurses -lm
  
  stack_eval.o: stack_eval.c eval.h vm.h vm.c stack.c stack.h int_funcs.h functions.h rt.h mutex.h types.h config.h dump_vm.c tm_log.c tm_log.h constants.def
  	$(CC) ${COMP_ARGS} `pkg-config --cflags glib-2.0` -c stack_eval.c
