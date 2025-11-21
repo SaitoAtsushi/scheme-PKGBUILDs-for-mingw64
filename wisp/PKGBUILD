@@ -1,33 +1,32 @@
 _realname=wisp
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=20201220
+pkgver=20250718
 pkgrel=1
 pkgdesc="R5RS scheme implementation."
 arch=('any')
 url="https://github.com/adrmcintyre/wisp"
 license=('unknown')
-depends=()
-makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-readline" "coreutils" "make" "autoconf")
-source=("wisp-b11665d.tar.gz::https://codeload.github.com/adrmcintyre/wisp/tar.gz/b11665d9ca20773b5c344cf2af14de05ae2b4fd4"
+depends=("${MINGW_PACKAGE_PREFIX}-readline")
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "coreutils" "make" "autoconf")
+source=("wisp-15c605a.tar.gz::https://codeload.github.com/adrmcintyre/wisp/zip/15c605aa48162b96159f8aed35c1893313504b6c"
         "wisp-mingw.patch")
-sha256sums=('45f69ec68424eb2a2378ef25132ac79ec9ed2f49474fd8e81c89580df0b214f7'
+sha256sums=('99674527bd685e1210274a272aa308c6c565ca785c26576780d335dab8c8e0cc'
             'SKIP')
 
 prepare() {
-  cd ${srcdir}/wisp-b11665d9ca20773b5c344cf2af14de05ae2b4fd4
+  cd ${srcdir}/wisp-15c605aa48162b96159f8aed35c1893313504b6c
   patch -p1 -i ${srcdir}/wisp-mingw.patch
-  autoreconf --install
 }
 
 build() {
-  cd ${srcdir}/wisp-b11665d9ca20773b5c344cf2af14de05ae2b4fd4
-  ./configure
-  make LDFLAGS="-static -Wl,--allow-multiple-definition" LIBS="-lshlwapi -ltermcap"
+  cd ${srcdir}/wisp-15c605aa48162b96159f8aed35c1893313504b6c
+  env LIBS="-lshlwapi" ./configure --prefix="${MINGW_PREFIX}" --with-readline=yes
+  make
 }
 
 package() {
-  cd ${srcdir}/wisp-b11665d9ca20773b5c344cf2af14de05ae2b4fd4
+  cd ${srcdir}/wisp-15c605aa48162b96159f8aed35c1893313504b6c
   install -s -D src/wisp.exe ${pkgdir}${MINGW_PREFIX}/bin/wisp.exe
   install -d ${pkgdir}${MINGW_PREFIX}/share/wisp/core
   install -d ${pkgdir}${MINGW_PREFIX}/share/wisp/srfi
