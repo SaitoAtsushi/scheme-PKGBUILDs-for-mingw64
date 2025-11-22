@@ -1,0 +1,33 @@
+_realname=scheme-rs
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=20250518
+pkgrel=1
+pkgdesc="An embeddable Scheme R7 Compiler & Runtime written in Rust (mingw-w64)"
+arch=('any')
+mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
+
+license=('MPL-2.0')
+makedepends=("${MINGW_PACKAGE_PREFIX}-rust")
+source=("scheme-rs-596f4a4.tgz::https://codeload.github.com/maplant/scheme-rs/tar.gz/596f4a498f36cf19b5b0150929c2851f651941df")
+sha256sums=('fc0e45d5f31edec7f998ef3cc66532deb797a1d2d9994c7f145f20cee9aea19a')
+
+prepare() {
+  cd "${_realname}-596f4a498f36cf19b5b0150929c2851f651941df"
+  cargo fetch
+}
+
+build() {
+  cd "${_realname}-596f4a498f36cf19b5b0150929c2851f651941df"
+  cargo build --release --frozen
+}
+
+package() {
+  cd "${_realname}-596f4a498f36cf19b5b0150929c2851f651941df"
+  cargo install --frozen --offline --no-track --path . --root "${pkgdir}${MINGW_PREFIX}"
+
+  install -Dm644 LICENSE "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/LICENSE"
+  install -Dm644 README.md "${pkgdir}${MINGW_PREFIX}/share/doc/${_realname}/README.md"
+  install -Dm644 logo-dark.png "${pkgdir}${MINGW_PREFIX}/share/doc/${_realname}/logo-dark.png"
+  install -Dm644 logo-light.png "${pkgdir}${MINGW_PREFIX}/share/doc/${_realname}/logo-light.png"
+}
