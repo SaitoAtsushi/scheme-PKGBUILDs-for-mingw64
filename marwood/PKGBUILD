@@ -1,0 +1,33 @@
+_realname=marwood
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=20250518
+pkgrel=1
+pkgdesc="An embeddable Scheme R7 Compiler & Runtime written in Rust (mingw-w64)"
+arch=('any')
+mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
+
+license=('MIT' 'Apache')
+makedepends=("${MINGW_PACKAGE_PREFIX}-rust")
+source=("marwood-027d511.tgz::https://codeload.github.com/strtok/marwood/tar.gz/027d5111be1ab912a8aa522285c837a9b1338aac")
+sha256sums=('e8f8d0771d68607b690a02936624b1326b6db32d83f10d470204285224107503')
+
+prepare() {
+  cd "${_realname}-027d5111be1ab912a8aa522285c837a9b1338aac"
+  cargo fetch --locked
+}
+
+build() {
+  cd "${_realname}-027d5111be1ab912a8aa522285c837a9b1338aac"
+  cargo build --release --frozen
+}
+
+package() {
+  cd "${_realname}-027d5111be1ab912a8aa522285c837a9b1338aac"
+  cargo install --frozen --offline --no-track --path marwood-repl --root "${pkgdir}"${MINGW_PREFIX}
+
+  install -Dm644 LICENSE-MIT "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/LICENSE-MIT"
+  install -Dm644 LICENSE-APACHE "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/LICENSE-APACHE"
+  install -Dm644 DESIGN.md "${pkgdir}${MINGW_PREFIX}/share/doc/${_realname}/DESIGN.md"
+  install -Dm644 README.md "${pkgdir}${MINGW_PREFIX}/share/doc/${_realname}/README.md"
+}
