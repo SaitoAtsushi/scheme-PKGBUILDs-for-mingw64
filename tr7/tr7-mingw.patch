@@ -1,0 +1,107 @@
+diff --git a/Makefile b/Makefile
+index fcbedab..e4c307e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -11,7 +11,7 @@ MINVERSION = $(MAJOR).$(MINOR)
+ .PHONY: all test chkopt clean updtref libtr7.so
+ 
+ # tools
+-CC ?= cc
++CC ?= gcc
+ AR ?= ar
+ RM ?= rm
+ LN ?= ln
+@@ -29,18 +29,18 @@ LD ?= ld
+ # LDFLAGS linker flags
+ SFLAGS = -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic
+ GFLAGS = -fno-asynchronous-unwind-tables -fomit-frame-pointer
+-WFLAGS = -Wall -Wextra -Wno-unused-parameter -Wsign-conversion
++WFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-sign-conversion
+ OFLAGS = -O3
+ DFLAGS = -g
+ FFLAGS =
+ EFLAGS =
+ MFLAGS = '-DVERSION="${VERSION}"' '-DMINVERSION="${MINVERSION}"'
+-LDFLAGS = -Wl,--gc-sections,-z,relro,-z,now
++LDFLAGS = -Wl,--gc-sections
+ # Detect darwin linker, which is not compatible with gnu linker
+ ifneq ($(findstring PROJECT,$(shell $(LD) -v 2>&1)),)
+ 	LDFLAGS = -Wl,-dead_strip,-pie
+ endif
+-SYSLIBS += -lm
++SYSLIBS += -lshlwapi -lm
+ 
+ # name of binary targets
+ LIBSTA = libtr7.a
+@@ -54,7 +54,7 @@ BINDIR = $(PREFIX)/bin
+ LIBDIR = $(PREFIX)/lib
+ INCDIR = $(PREFIX)/include
+ DATADIR = $(PREFIX)/share
+-TR7LIBPATH = $(PREFIX)/share/tr7/tr7libs:$(PWD)/tr7libs
++TR7LIBPATH = $(PREFIX)/share/tr7/tr7libs
+ 
+ # default targets
+ ALL = $(LIBSTA) $(TR7I) tags
+diff --git a/examples/tr7i.c b/examples/tr7i.c
+index 9192133..d04ccbd 100644
+--- a/examples/tr7i.c
++++ b/examples/tr7i.c
+@@ -10,6 +10,11 @@
+ #ifdef _WIN32
+ #  define snprintf _snprintf
+ #endif
++#ifdef __MINGW32__
++#  define WIN32_LEAN_AND_MEAN
++#  include <windows.h>
++#  include <shlwapi.h>
++#endif
+ 
+ #include "tr7.h"
+ 
+@@ -83,6 +88,20 @@ static void addenvstr(tr7_engine_t tsc,
+    tr7_set_string(tsc, strid, val ? val : defval);
+ }
+ 
++char *get_libpath(void) {
++   static char buf[1024] = {0};
++   static char relpath[] = "/../share/tr7/tr7libs";
++   uint32_t size = GetModuleFileNameA(NULL, buf, sizeof(buf));
++   if(size == sizeof(buf) || size == 0) return NULL;
++   PathRemoveFileSpecA(buf);
++   if (strlen(buf) + sizeof(relpath) > sizeof(buf)) {
++      fprintf(stderr, "library path is too long.\n");
++      exit(2);
++   }
++   strcat(buf, relpath);
++   return buf;
++}
++
+ int main(int argc, char **argv)
+ {
+    tr7_engine_t tsc;
+@@ -118,7 +137,11 @@ int main(int argc, char **argv)
+    tr7_set_standard_ports(tsc);
+    tr7_set_argv(argv);
+    addenvstr(tsc, Tr7_StrID_Path, PATHVAR, DEFPATH);
++#ifdef __MINGW32__
++   addenvstr(tsc, Tr7_StrID_Library_Path, LIBPATHVAR, get_libpath());
++#else
+    addenvstr(tsc, Tr7_StrID_Library_Path, LIBPATHVAR, DEFLIBPATH);
++#endif
+    addenvstr(tsc, Tr7_StrID_Include_Path, INCPATHVAR, DEFINCPATH);
+    addenvstr(tsc, Tr7_StrID_Extension_Path, EXTPATHVAR, DEFEXTPATH);
+    addenvstr(tsc, Tr7_StrID_Prompt, PROMPTVAR, PROMPT);
+diff --git a/tr7.c b/tr7.c
+index be43f1e..f23a7a8 100644
+--- a/tr7.c
++++ b/tr7.c
+@@ -14220,7 +14220,9 @@ static eval_status_t proc_flush_output_port(tr7_engine_t tsc, int nargs)
+ *
+ */
+ #if USE_SCHEME_PROCESS_CONTEXT
++#ifndef __MINGW32__
+ extern char **environ;
++#endif
+ static char **memo_argv = NULL;
+ 
+ void tr7_set_argv(char **argv)
