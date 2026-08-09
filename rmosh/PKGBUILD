@@ -1,0 +1,30 @@
+_realname=rmosh
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=0.0.1
+pkgrel=1
+pkgdesc="Rmosh is a free and fast interpreter for Scheme as specified in the R6RS. "
+arch=('any')
+mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
+
+license=('MIT')
+#makedepends=("${MINGW_PACKAGE_PREFIX}-rust")
+source=("rmosh-b0c3986.tar.gz::https://codeload.github.com/higepon/mosh/tar.gz/b0c398696faa3d2b3bd9ea9c35144ad7e97757ef")
+sha256sums=('e5b35bf765330aa36620902f654d088974dddb672b5dd5ae16da6bae3f185f1d')
+
+prepare() {
+  cd "mosh-b0c398696faa3d2b3bd9ea9c35144ad7e97757ef/rmosh"
+  cargo fetch
+}
+
+build() {
+  cd "mosh-b0c398696faa3d2b3bd9ea9c35144ad7e97757ef/rmosh"
+  cargo build --release --frozen
+}
+
+package() {
+  cd "mosh-b0c398696faa3d2b3bd9ea9c35144ad7e97757ef/rmosh"
+  cargo install --frozen --offline --no-track --path . --root "${pkgdir}"${MINGW_PREFIX}
+
+  install -Dm644 README.md "${pkgdir}${MINGW_PREFIX}/share/doc/${_realname}/README.md"
+}
