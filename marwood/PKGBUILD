@@ -1,29 +1,29 @@
 _realname=marwood
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=20250518
+pkgver=20260428
 pkgrel=1
 pkgdesc="An embeddable Scheme R7 Compiler & Runtime written in Rust (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
 
 license=('MIT' 'Apache')
-makedepends=("${MINGW_PACKAGE_PREFIX}-rust")
-source=("marwood-027d511.tgz::https://codeload.github.com/strtok/marwood/tar.gz/027d5111be1ab912a8aa522285c837a9b1338aac")
-sha256sums=('e8f8d0771d68607b690a02936624b1326b6db32d83f10d470204285224107503')
+#makedepends=("${MINGW_PACKAGE_PREFIX}-rust")
+source=("marwood-e4d099d.tgz::https://codeload.github.com/strtok/marwood/tar.gz/e4d099d5b53c9eb46fc6e94caacc14aee44ff38e")
+sha256sums=('6c90e9d15cb4a6c6900a580558a0bc44304b0b01a3393b62f233464d2128dec5')
 
 prepare() {
-  cd "${_realname}-027d5111be1ab912a8aa522285c837a9b1338aac"
+  cd "${_realname}-e4d099d5b53c9eb46fc6e94caacc14aee44ff38e"
   cargo fetch --locked
 }
 
 build() {
-  cd "${_realname}-027d5111be1ab912a8aa522285c837a9b1338aac"
+  cd "${_realname}-e4d099d5b53c9eb46fc6e94caacc14aee44ff38e"
   cargo build --release --frozen
 }
 
 package() {
-  cd "${_realname}-027d5111be1ab912a8aa522285c837a9b1338aac"
+  cd "${_realname}-e4d099d5b53c9eb46fc6e94caacc14aee44ff38e"
   cargo install --frozen --offline --no-track --path marwood-repl --root "${pkgdir}"${MINGW_PREFIX}
 
   install -Dm644 LICENSE-MIT "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/LICENSE-MIT"
