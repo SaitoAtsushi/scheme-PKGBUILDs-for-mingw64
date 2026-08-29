@@ -1,16 +1,16 @@
 pkgbase=tr7
 pkgname="${MINGW_PACKAGE_PREFIX}-${pkgbase}"
-pkgver=2.0.11
+pkgver=2.0.19
 pkgrel=1
 pkgdesc="Tiny R7RS-small scheme interpreter"
 arch=('any')
-url="https://jobol.gitlab.io/tr7/"
+url="https://gitlab.com/jobol/tr7"
 license=('ISCL')
 depends=()
 makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-make")
-source=("https://gitlab.com/jobol/tr7/-/archive/v2.0.11/tr7-v2.0.11.tar.gz"
+source=("https://gitlab.com/jobol/tr7/-/archive/v2.0.19/tr7-v2.0.19.tar.gz"
         "tr7-mingw.patch")
-sha256sums=('5e4b19c672286c76d1d8bf3215daf51a24539269d3e45012656395bc3de7541d'
+sha256sums=('da74d276bcb8e545e391ee0fa85e851b8771692156c3d0ca6f333e029a8e6a94'
             'SKIP')
 
 prepare() {
