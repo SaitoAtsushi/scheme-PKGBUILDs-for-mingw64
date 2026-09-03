@@ -1,0 +1,31 @@
+_realname=skint
+pkgbase=mingw-w64-${_realname}
+pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
+pkgver=0.6.7.r490
+pkgrel=1
+pkgdesc="Cheap and fast R7RS Scheme interpreter"
+arch=('any')
+url="https://github.com/false-schemers/skint"
+license=('custom')
+depends=()
+makedepends=("${MINGW_PACKAGE_PREFIX}-gcc" "${MINGW_PACKAGE_PREFIX}-make")
+source=("${_realname}-${pkgver}.tar.gz::https://codeload.github.com/false-schemers/skint/tar.gz/4466d9c5e0dcc61defe951f8f86952b97f62fcb8"
+        "skint-mingw.patch")
+sha256sums=('c4f1d3689ba0c093af9241b96ee09c30a1e1c1a78070f9742e1c1f761ebe8a6d'
+            'SKIP')
+
+prepare() {
+  cd ${srcdir}/${_realname}-4466d9c5e0dcc61defe951f8f86952b97f62fcb8
+  patch -i ${srcdir}/skint-mingw.patch
+}
+
+build() {
+  cd ${srcdir}/${_realname}-4466d9c5e0dcc61defe951f8f86952b97f62fcb8
+  mingw32-make PREFIX=${MINGW_PREFIX}
+}
+
+package() {
+  cd ${srcdir}/${_realname}-4466d9c5e0dcc61defe951f8f86952b97f62fcb8
+  mingw32-make install PREFIX=${pkgdir}
+  mingw32-make libinstall LIBROOT=${pkgdir}/share/skint
+}

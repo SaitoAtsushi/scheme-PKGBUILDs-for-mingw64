@@ -1,0 +1,12 @@
+--- s.h	2026-09-02 22:48:26.000000000 +0900
++++ s.h	2026-09-03 13:36:54.655618300 +0900
+@@ -104,9 +104,6 @@
+ #elif defined(__GNUC__) && (defined(_WIN32) || defined(__INTERIX))
+ #include <sys/types.h>
+ #include <sys/stat.h>
+-#include <sys/wait.h>
+-#include <sys/ioctl.h>
+-#include <termios.h>
+ #include <unistd.h>
+ #include <dlfcn.h>
+ #include <dirent.h>
